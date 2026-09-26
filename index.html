@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waqt — plan your day around prayer</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FAF8F3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Waqt">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF8F3; --ink:#2B2B26; --ink-soft:#6B6A62;
+    --sage:#5C7A5C; --sage-soft:#E4EAE1; --terracotta:#C97B4A;
+    --sand:#E8E3D6; --sand-line:#DAD4C3; --white:#FFFFFF; --surface:#FFFFFF;
+    --radius:14px; --radius-sm:9px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#171713; --ink:#EDEAE0; --ink-soft:#9C978A;
+    --sage:#7FA07C; --sage-soft:#24312A; --terracotta:#D99567;
+    --sand:#242420; --sand-line:#3A3A33; --surface:#1F1F1B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+  button{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+  .screen{display:none;min-height:100vh;flex-direction:column;}
+  .screen.active{display:flex;}
+  .wrap{max-width:480px;margin:0 auto;width:100%;padding:0 20px;flex:1;display:flex;flex-direction:column;}
+
+  #onboarding .wrap{justify-content:center;text-align:center;padding-top:60px;padding-bottom:60px;}
+  .ayah{font-family:'Lora',serif;font-style:italic;font-size:22px;line-height:1.7;margin:0 0 14px;}
+  .ayah-arabic{font-family:'Amiri',serif;font-size:27px;line-height:2;color:var(--ink);margin:0 0 16px;}
+  .ayah-ref{font-size:13px;color:var(--ink-soft);margin-bottom:48px;}
+  .brandmark{font-family:'Lora',serif;font-size:17px;color:var(--sage);margin-bottom:40px;}
+  .tagline{font-size:15px;color:var(--ink-soft);margin-bottom:36px;line-height:1.6;}
+
+  .btn{display:block;width:100%;background:var(--sage);color:var(--white);border:none;border-radius:var(--radius-sm);padding:14px 20px;font-size:15px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;text-align:center;}
+  .btn:active{opacity:0.85;}
+  .btn-ghost{background:transparent;color:var(--sage);border:1px solid var(--sand-line);}
+  .btn-sm{padding:8px 14px;font-size:12.5px;width:auto;border-radius:8px;}
+  .option{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px 16px;font-family:'Inter',sans-serif;font-size:14px;margin-bottom:10px;cursor:pointer;}
+  .option.selected{border-color:var(--sage);background:var(--sage-soft);}
+  .step-label{font-size:13px;color:var(--ink-soft);margin-bottom:8px;}
+  .step-title{font-family:'Lora',serif;font-size:21px;margin:0 0 24px;}
+
+  header.appbar{padding:18px 20px 14px;max-width:480px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:baseline;}
+  header.appbar .title{font-family:'Lora',serif;font-size:19px;}
+
+  nav.tabbar{position:sticky;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--sand-line);display:flex;padding:10px 0 calc(10px + env(safe-area-inset-bottom));}
+  nav.tabbar button{flex:1;background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 0;}
+  nav.tabbar button.active{color:var(--sage);font-weight:500;}
+  nav.tabbar .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0;}
+  nav.tabbar button.active .dot{opacity:1;}
+
+  main.content{flex:1;overflow-y:auto;padding-bottom:12px;}
+
+  .date-nav{display:flex;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;padding:0 20px 10px;}
+  .date-nav .arrow{background:var(--surface);border:1px solid var(--sand-line);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer;color:var(--ink);}
+  .date-nav .label-wrap{text-align:center;}
+  .date-nav .rel{font-size:14px;font-weight:500;}
+  .date-nav .sub{font-size:11.5px;color:var(--ink-soft);}
+  .jump-today{display:block;margin:0 auto 10px;}
+
+  .countdown{max-width:440px;margin:0 auto 14px;padding:0 20px;text-align:center;font-size:12.5px;color:var(--sage);font-weight:500;}
+
+  .banner{background:var(--sand);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;margin:0 20px 14px;max-width:440px;}
+
+  .block-wrap{max-width:480px;margin:0 auto;padding:0 20px;}
+  .prayer-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .prayer-row .check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--sand-line);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--surface);font-size:12px;}
+  .prayer-row .check.done{background:var(--sage);border-color:var(--sage);color:var(--white);}
+  .prayer-row .name{font-size:14px;font-weight:500;}
+  .prayer-row .time{font-size:12px;color:var(--ink-soft);margin-left:auto;}
+
+  .block{border-left:2px solid var(--sand-line);margin:0 0 6px 10px;padding:6px 0 14px 18px;}
+  .block.past{opacity:0.45;}
+  .task{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;font-size:13.5px;display:flex;align-items:center;gap:8px;}
+  .task .tcheck{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--sand-line);flex-shrink:0;cursor:pointer;background:var(--surface);}
+  .task.done .tcheck{background:var(--terracotta);border-color:var(--terracotta);}
+  .task.done span.tlabel{text-decoration:line-through;color:var(--ink-soft);}
+  .task .tlabel{flex:1;min-width:0;overflow-wrap:break-word;}
+  .add-task{border:1px dashed var(--sand-line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--ink-soft);background:transparent;width:100%;text-align:left;cursor:pointer;font-family:'Inter',sans-serif;}
+  .add-task-form{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:10px;}
+  .add-task-form .row1{display:flex;gap:6px;}
+  .add-task-form input[type=text],.add-task-form input[type=number],.add-task-form input[type=time]{padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);}
+  .add-task-form input#taskinput{flex:1;min-width:0;}
+  .add-task-form input:focus{outline:none;border-color:var(--sage);}
+  .mode-toggle{display:flex;gap:6px;}
+  .mode-toggle button{flex:1;background:var(--bg);border:1px solid var(--sand-line);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .mode-toggle button.active{background:var(--sage-soft);border-color:var(--sage);color:var(--sage);font-weight:500;}
+  .add-task-form .row2{display:flex;gap:6px;align-items:center;}
+  .add-task-form .row2 .timefield{flex:1;}
+  .repeat-row{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+  .repeat-row input{width:15px;height:15px;}
+  .add-task-form .actions{display:flex;justify-content:flex-end;gap:6px;}
+  .add-task-form button.confirm{background:var(--sage);color:var(--white);border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;}
+  .add-task-form button.cancel{background:transparent;color:var(--ink-soft);border:1px solid var(--sand-line);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;}
+  .task .tmeta{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:4px;}
+  .task .ticon{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+  .task .ticon:hover{color:var(--sage);}
+  .task .ticon.tdelete:hover{color:var(--terracotta);}
+  .task .ticon:disabled{opacity:0.25;cursor:default;}
+  .task .drag-handle{cursor:grab;touch-action:none;color:var(--ink-soft);}
+  .task .drag-handle:active{cursor:grabbing;}
+  .task.dragging{position:relative;z-index:50;box-shadow:0 10px 24px rgba(0,0,0,0.18);background:var(--surface);}
+  .task .ttime{font-size:11.5px;color:var(--ink-soft);background:var(--sand);border-radius:6px;padding:2px 7px;white-space:nowrap;}
+  .task.done .ttime{color:var(--ink-soft);}
+  .task .trecur{font-size:11px;color:var(--sage);}
+
+  .stat-row{display:flex;gap:10px;max-width:480px;margin:4px auto 18px;padding:0 20px;flex-wrap:wrap;}
+  .stat-card{flex:1;min-width:90px;background:var(--sand);border-radius:var(--radius-sm);padding:12px 14px;}
+  .stat-card .num{font-size:19px;font-weight:600;}
+  .stat-card .lbl{font-size:11.5px;color:var(--ink-soft);}
+  .compare-card{max-width:440px;margin:0 auto 18px;padding:12px 20px;}
+  .compare-card .inner{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px 16px;font-size:13.5px;}
+
+  .setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--sand-line);}
+  .setting-row .label{font-size:14px;}
+  .setting-row .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .switch{width:42px;height:24px;border-radius:12px;background:var(--sand-line);position:relative;cursor:pointer;flex-shrink:0;}
+  .switch.on{background:var(--sage);}
+  .switch .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--white);transition:left .15s;}
+  .switch.on .knob{left:20px;}
+
+  .day-card{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;cursor:pointer;}
+  .day-card .top{display:flex;justify-content:space-between;align-items:center;}
+  .day-card .d{font-size:13.5px;font-weight:500;}
+  .day-card .p{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .day-detail{margin-top:12px;padding-top:12px;border-top:1px solid var(--sand-line);}
+  .day-detail .dp-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;}
+  .day-detail .dp-row .yes{color:var(--sage);}
+  .day-detail .dtask{font-size:13px;padding:4px 0;}
+  .day-detail .dtask.done{text-decoration:line-through;color:var(--ink-soft);}
+  .detail-sub{font-size:11.5px;color:var(--ink-soft);margin:10px 0 4px;}
+
+  .section-title{font-size:13px;color:var(--ink-soft);margin:18px 0 10px;padding:0 20px;}
+  .empty{font-size:13px;color:var(--ink-soft);padding:20px;text-align:center;}
+
+  .recur-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--sand-line);font-size:13px;}
+  .scratch-wrap{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
+  .scratch-label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
+  .scratchpad{width:100%;min-height:110px;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;line-height:1.6;}
+  .scratchpad:focus{outline:none;}
+  .scratch-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;}
+  .divider-line{border:none;border-top:1px solid var(--sand-line);margin:16px 0;}
+
+  .brain-overlay{position:fixed;inset:0;background:rgba(43,43,38,0.45);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;}
+  .brain-overlay.active{display:flex;}
+  .brain-card{background:var(--bg);border-radius:18px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.28);overflow:hidden;}
+  .brain-card.fullscreen{max-width:100%;max-height:100%;width:100%;height:100%;border-radius:0;}
+  .brain-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:1px solid var(--sand-line);flex-shrink:0;}
+  .brain-card.fullscreen .brain-header{padding-top:calc(16px + env(safe-area-inset-top,0px));}
+  .brain-header .btitle{font-family:'Lora',serif;font-size:17px;}
+  .brain-header-btns{display:flex;gap:4px;}
+  .brain-icon-btn{background:none;border:none;font-size:17px;color:var(--ink-soft);cursor:pointer;padding:4px 8px;}
+  .brain-tabs{display:flex;gap:8px;padding:12px 18px 0;flex-shrink:0;}
+  .brain-tabs button{flex:1;background:var(--sand);border:1px solid var(--sand-line);border-radius:8px;padding:9px;font-size:13px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .brain-tabs button.active{background:var(--sage);color:#fff;border-color:var(--sage);font-weight:500;}
+  .brain-body{flex:1;padding:14px 18px 18px;display:flex;flex-direction:column;min-height:0;overflow:auto;}
+  .brain-card.fullscreen .brain-body{padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));}
+  .brain-textarea{flex:1;width:100%;min-height:140px;border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px;font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);resize:none;background:var(--surface);}
+  .brain-textarea:focus{outline:none;border-color:var(--sage);}
+  .brain-canvas-wrap{flex:1;min-height:180px;border:1px solid var(--sand-line);border-radius:var(--radius-sm);background:var(--surface);position:relative;overflow:hidden;touch-action:none;}
+  .brain-canvas-wrap canvas{width:100%;height:100%;display:block;touch-action:none;}
+  .brain-colors{display:flex;gap:10px;padding-bottom:10px;align-items:center;flex-shrink:0;}
+  .brain-color{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0;}
+  .brain-color.active{border-color:var(--ink);}
+  .brain-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:10px;flex-shrink:0;}
+  .recur-item .rlabel{flex:1;}
+  .recur-item .rsub{font-size:11.5px;color:var(--ink-soft);}
+  .data-btns{display:flex;gap:8px;margin:10px 0 4px;}
+  .status-line{font-size:12px;color:var(--sage);margin-top:8px;min-height:14px;}
+
+  .undo-toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:11px;font-size:13px;display:flex;align-items:center;gap:16px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:1200;opacity:0;pointer-events:none;transition:opacity .18s, transform .18s;max-width:90vw;}
+  .undo-toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+  .undo-toast button{background:none;border:none;color:var(--sage);font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;}
+  :root[data-theme="dark"] .undo-toast button{color:var(--terracotta);}
+</style>
+</head>
+<body>
+
+<div id="onboarding" class="screen active">
+  <div class="wrap">
+    <div class="brandmark">Waqt</div>
+    <p class="ayah-arabic" dir="rtl" lang="ar">وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰ</p>
+    <p class="ayah">"And that there is not for man except that [good] for which he strives."</p>
+    <p class="ayah-ref">Surah An-Najm, 53:39 — Sahih International</p>
+    <p class="tagline">Waqt helps you build your day around your prayers — not squeeze your prayers into your day.</p>
+    <button class="btn" id="entry-btn" onclick="goTo('personalize1')">Begin</button>
+  </div>
+</div>
+
+<div id="personalize1" class="screen">
+  <div class="wrap" style="padding-top:60px;">
+    <div class="step-label">1 of 2</div>
+    <h2 class="step-title">What best describes you right now?</h2>
+    <div id="p1-options"></div>
+    <div style="margin-top:24px;"></div>
+    <button class="btn" onclick="goTo('personalize2')">Continue</button>
+  </div>
+</div>
+
+<div id="personalize2" class="screen">
+  <div class="wrap" style="padding-top:60px;">
+    <div class="step-label">2 of 2</div>
+    <h2 class="step-title">What do you want Waqt to help with most?</h2>
+    <div id="p2-options"></div>
+    <div style="margin-top:24px;"></div>
+    <button class="btn" onclick="finishOnboarding()">Set up my day</button>
+  </div>
+</div>
+
+<div id="app" class="screen">
+  <header class="appbar">
+    <div class="title" id="app-title">Today</div>
+  </header>
+  <main class="content">
+    <div id="tab-today"></div>
+    <div id="tab-history" style="display:none;"></div>
+    <div id="tab-settings" style="display:none;"></div>
+    <div id="tab-todo" style="display:none;"></div>
+  </main>
+  <nav class="tabbar">
+    <button class="active" data-tab="today" onclick="switchTab('today')"><span class="dot"></span>Today</button>
+    <button data-tab="history" onclick="switchTab('history')"><span class="dot"></span>History</button>
+    <button data-tab="settings" onclick="switchTab('settings')"><span class="dot"></span>Settings</button>
+    <button data-tab="todo" onclick="switchTab('todo')"><span class="dot"></span>To-Do</button>
+  </nav>
+</div>
+
+<script>
+const STORAGE_KEY = 'anchorState';
+const PRAYER_ORDER = ['fajr','dhuhr','asr','maghrib','isha'];
+const PRAYER_LABEL = {fajr:'Fajr',dhuhr:'Dhuhr',asr:'Asr',maghrib:'Maghrib',isha:'Isha'};
+
+function defaultState(){
+  return {
+    onboarded:false,
+    profile:{ role:null, purpose:null },
+    settings:{ blockMode:true, fadePast:true, remindersOn:true, showCountdown:true, calcMethod:3, darkMode:false, adjustments:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0} },
+    location:{ lat:51.5074, lng:-0.1278, label:'London (default)', isDefault:true },
+    days:{},
+    recurringTasks:[],
+    todoList:[],
+    scratchpad:'',
+    scratchDrawing:''
+  };
+}
+let state = loadState();
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', state.settings.darkMode ? 'dark' : 'light');
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if(!meta){ meta = document.createElement('meta'); meta.name='theme-color'; document.head.appendChild(meta); }
+  meta.content = state.settings.darkMode ? '#171713' : '#FAF8F3';
+}
+applyTheme();
+let p1Choice=null, p2Choice=null;
+let viewDate = new Date();
+let timingsCache = {};
+let hijriCache = {};
+let openAddForm = null;
+let editingTaskId = null;
+let addTimeMode = 'none';
+let expandedDayKey = null;
+let todoAddOpen = false;
+let todoEditingId = null;
+let brainMode = 'type';
+let drawCtx = null;
+let currentColor = '#2B2B26';
+
+function loadState(){
+  try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    const merged = Object.assign(defaultState(), parsed);
+    merged.settings = Object.assign(defaultState().settings, parsed.settings||{});
+    if(!merged.recurringTasks) merged.recurringTasks = [];
+    if(!merged.todoList) merged.todoList = [];
+    if(typeof merged.scratchpad !== 'string') merged.scratchpad = '';
+    if(typeof merged.scratchDrawing !== 'string') merged.scratchDrawing = '';
+    return merged;
+  }catch(e){ return defaultState(); }
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function dateKeyFromDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayKey(){ return dateKeyFromDate(new Date()); }
+function keyOffset(offsetDays){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return dateKeyFromDate(d); }
+function viewKey(){ return dateKeyFromDate(viewDate); }
+function ensureDay(key){
+  if(!state.days[key]){
+    const tasks = state.recurringTasks.map((rt,i)=>({
+      id: Date.now()+i, block: rt.block, text: rt.text,
+      minutes: rt.minutes||null, startTime: rt.startTime||null,
+      done:false, recurring:true, templateId: rt.id
+    }));
+    state.days[key] = { prayers:{fajr:false,dhuhr:false,asr:false,maghrib:false,isha:false}, tasks };
+  }
+  return state.days[key];
+}
+
+const P1 = [{id:'student',label:'Student'},{id:'working',label:'Working full-time'},{id:'shift',label:'Shift work / irregular hours'},{id:'other',label:'Something else'}];
+const P2 = [{id:'consistency',label:'Not missing prayers'},{id:'balance',label:'Balancing study/work with prayer times'},{id:'habits',label:'Building better daily habits overall'},{id:'tracking',label:'Just tracking my progress over time'}];
+
+function renderOptions(containerId, list, onPick){
+  const el = document.getElementById(containerId); el.innerHTML='';
+  list.forEach(item=>{
+    const btn = document.createElement('button'); btn.className='option'; btn.textContent=item.label;
+    btn.onclick = ()=>{ [...el.children].forEach(c=>c.classList.remove('selected')); btn.classList.add('selected'); onPick(item.id); };
+    el.appendChild(btn);
+  });
+}
+renderOptions('p1-options', P1, (id)=>{ p1Choice=id; });
+renderOptions('p2-options', P2, (id)=>{ p2Choice=id; });
+
+function goTo(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+function finishOnboarding(){
+  state.profile.role = p1Choice || 'other';
+  state.profile.purpose = p2Choice || 'consistency';
+  state.onboarded = true; saveState();
+  requestLocationThenLaunch();
+}
+function requestLocationThenLaunch(){
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,label:'Your location',isDefault:false}; saveState(); launchApp(); },
+      ()=>{ launchApp(); }, {timeout:4000}
+    );
+  } else launchApp();
+}
+function refreshLocation(statusEl){
+  if(!navigator.geolocation){ statusEl.textContent='Location isn\'t available on this device/browser.'; return; }
+  statusEl.textContent = 'Requesting location…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      state.location = {lat:pos.coords.latitude, lng:pos.coords.longitude, label:'Your location', isDefault:false};
+      saveState(); timingsCache = {};
+      Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{
+        statusEl.textContent = 'Location updated — prayer times refreshed.';
+        renderToday(); renderSettings();
+      });
+    },
+    ()=>{ statusEl.textContent = 'Permission denied — check your browser/phone location settings for this page.'; },
+    {timeout:8000, enableHighAccuracy:true}
+  );
+}
+function launchApp(){
+  goTo('app');
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{
+    renderToday(); renderSettings();
+  });
+  setInterval(()=>{ if(document.getElementById('tab-today').style.display!=='none') renderToday(); }, 60000);
+  setInterval(updateCountdownDisplay, 1000);
+}
+function tomorrowOf(d){ const nd = new Date(d); nd.setDate(nd.getDate()+1); return nd; }
+
+async function loadPrayerTimesFor(dateObj){
+  const key = dateKeyFromDate(dateObj);
+  if(timingsCache[key]) return timingsCache[key];
+  try{
+    const {lat,lng} = state.location;
+    const dd = String(dateObj.getDate()).padStart(2,'0');
+    const mm = String(dateObj.getMonth()+1).padStart(2,'0');
+    const yyyy = dateObj.getFullYear();
+    const url = `https://api.aladhan.com/v1/timings/${dd}-${mm}-${yyyy}?latitude=${lat}&longitude=${lng}&method=${state.settings.calcMethod}`;
+    const res = await fetch(url); const data = await res.json(); const t = data.data.timings;
+    timingsCache[key] = {fajr:t.Fajr.slice(0,5), dhuhr:t.Dhuhr.slice(0,5), asr:t.Asr.slice(0,5), maghrib:t.Maghrib.slice(0,5), isha:t.Isha.slice(0,5)};
+    try{
+      const h = data.data.date.hijri;
+      hijriCache[key] = `${h.day} ${h.month.en} ${h.year}`;
+    }catch(e){}
+  }catch(e){
+    timingsCache[key] = {fajr:'05:15', dhuhr:'13:05', asr:'16:40', maghrib:'19:25', isha:'20:55'};
+  }
+  return timingsCache[key];
+}
+function shiftTime(hhmm, deltaMin){
+  if(!deltaMin) return hhmm;
+  const [h,m] = hhmm.split(':').map(Number);
+  const d = new Date(2000,0,1,h,m,0);
+  d.setMinutes(d.getMinutes()+deltaMin);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function getAdjustedTimings(key){
+  const raw = timingsCache[key]; if(!raw) return null;
+  const adj = state.settings.adjustments || {};
+  const out = {};
+  PRAYER_ORDER.forEach(p=>{ out[p] = shiftTime(raw[p], adj[p]||0); });
+  return out;
+}
+function parseTimeOn(dateObj, hhmm){
+  const [h,m] = hhmm.split(':').map(Number);
+  const d = new Date(dateObj); d.setHours(h,m,0,0); return d;
+}
+
+function switchTab(tab){
+  ['today','history','settings','todo'].forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===tab)?'block':'none'; });
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('app-title').textContent = tab==='today'?'Today':tab==='history'?'History':tab==='settings'?'Settings':'To-Do';
+  if(tab==='today') renderToday();
+  if(tab==='history') renderHistory();
+  if(tab==='settings') renderSettings();
+  if(tab==='todo') renderTodo();
+}
+
+function shiftDay(delta){
+  viewDate.setDate(viewDate.getDate()+delta);
+  openAddForm = null; editingTaskId = null;
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+}
+function jumpToday(){
+  viewDate = new Date(); openAddForm=null; editingTaskId=null;
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+}
+
+function relativeLabel(){
+  const k = viewKey();
+  if(k===todayKey()) return 'Today';
+  if(k===keyOffset(-1)) return 'Yesterday';
+  if(k===keyOffset(1)) return 'Tomorrow';
+  return viewDate.toLocaleDateString('en-GB',{weekday:'long'});
+}
+
+function renderToday(){
+  const key = viewKey();
+  const day = ensureDay(key);
+  const t = getAdjustedTimings(key);
+  const now = new Date();
+  const isToday = key === todayKey();
+  const container = document.getElementById('tab-today');
+  container.innerHTML = '';
+
+  const nav = document.createElement('div'); nav.className='date-nav';
+  nav.innerHTML = `
+    <button class="arrow" onclick="shiftDay(-1)">&#8592;</button>
+    <div class="label-wrap"><div class="rel">${relativeLabel()}</div><div class="sub">${viewDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}${hijriCache[key]?' · '+hijriCache[key]:''}</div></div>
+    <button class="arrow" onclick="shiftDay(1)">&#8594;</button>
+  `;
+  container.appendChild(nav);
+  if(!isToday){
+    const jb = document.createElement('button'); jb.className='btn btn-ghost btn-sm jump-today';
+    jb.textContent='Jump to today'; jb.onclick=jumpToday;
+    container.appendChild(jb);
+  }
+
+  if(isToday && state.settings.showCountdown){
+    const cd = document.createElement('div'); cd.className='countdown'; cd.id='countdown-el';
+    container.appendChild(cd);
+    updateCountdownDisplay();
+  }
+
+  const blockWrap = document.createElement('div'); blockWrap.className='block-wrap';
+
+  PRAYER_ORDER.forEach((pid, idx)=>{
+    const time = t[pid];
+    const done = day.prayers[pid];
+
+    const row = document.createElement('div'); row.className='prayer-row';
+    row.innerHTML = `<div class="check ${done?'done':''}">${done?'&#10003;':''}</div><div class="name">${PRAYER_LABEL[pid]}</div><div class="time">${to12h(time)}</div>`;
+    row.querySelector('.check').onclick = ()=>{ day.prayers[pid]=!day.prayers[pid]; saveState(); renderToday(); };
+    blockWrap.appendChild(row);
+
+    if(state.settings.blockMode){
+      const nextIdx=(idx+1)%PRAYER_ORDER.length; const isLast = idx===PRAYER_ORDER.length-1;
+      const blockPast = isToday && !isLast && now > parseTimeOn(viewDate, t[PRAYER_ORDER[nextIdx]]);
+      const block = document.createElement('div'); block.className='block'+((state.settings.fadePast && blockPast)?' past':'');
+      const blockTasks = day.tasks.filter(tk=>tk.block===pid);
+      const blockMins = blockTasks.reduce((sum,tk)=>sum+(tk.minutes||0),0);
+      if(blockMins>0){
+        const totalTag = document.createElement('div');
+        totalTag.style.cssText='font-size:11px;color:var(--ink-soft);margin-bottom:6px;';
+        totalTag.textContent = `${formatMinutes(blockMins)} planned`;
+        block.appendChild(totalTag);
+      }
+      blockTasks.forEach((tk,i)=>{
+        block.appendChild(renderTaskRow(tk, day, pid, i===0, i===blockTasks.length-1));
+      });
+      renderAddTaskUI(block, pid, day);
+      blockWrap.appendChild(block);
+    }
+  });
+
+  if(!state.settings.blockMode){
+    const listWrap = document.createElement('div'); listWrap.style.marginTop='16px';
+    const flatTasks = day.tasks.filter(tk=>tk.block==='none');
+    flatTasks.forEach((tk,i)=>{
+      listWrap.appendChild(renderTaskRow(tk, day, 'none', i===0, i===flatTasks.length-1));
+    });
+    renderAddTaskUI(listWrap, 'none', day);
+    blockWrap.appendChild(listWrap);
+  }
+
+  container.appendChild(blockWrap);
+
+  const stats = document.createElement('div'); stats.className='stat-row';
+  const prayedCount = PRAYER_ORDER.filter(p=>day.prayers[p]).length;
+  stats.innerHTML = `<div class="stat-card"><div class="num">${prayedCount}/5</div><div class="lbl">prayed</div></div>
+    <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>`;
+  container.appendChild(stats);
+
+  if(isToday) renderBanner(container, day, t, now);
+  focusOpenInput();
+}
+
+function renderTaskRow(tk, day, blockId, isFirst, isLast){
+  const el = document.createElement('div'); el.className='task'+(tk.done?' done':'');
+  el.dataset.id = tk.id;
+  el.innerHTML = `<div class="tcheck"></div><span class="tlabel">${escapeHtml(tk.text)}</span>
+    <span class="tmeta">
+      ${tk.recurring?'<span class="trecur">&#8635;</span>':''}
+      ${taskTimeBadge(tk)}
+      <button class="ticon tedit" title="Edit">&#9998;</button>
+      <button class="ticon tdelete" title="Delete">&#10005;</button>
+      <button class="ticon drag-handle" title="Drag to reorder">${GRIP_SVG}</button>
+    </span>`;
+  el.querySelector('.tcheck').onclick=()=>{ tk.done=!tk.done; saveState(); renderToday(); };
+  el.querySelector('.tdelete').onclick=()=>{ deleteTask(day, tk.id); };
+  el.querySelector('.tedit').onclick=()=>{ startEditTask(blockId, tk); };
+  enableDragReorder(el.querySelector('.drag-handle'), el, (targetIndex)=>{
+    reorderWithinGroup(day.tasks, x=>x.block===blockId, tk.id, targetIndex);
+    saveState(); renderToday();
+  });
+  return el;
+}
+
+const GRIP_SVG = '<svg width="13" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="4" r="1.6"/><circle cx="10" cy="4" r="1.6"/><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="4" cy="16" r="1.6"/><circle cx="10" cy="16" r="1.6"/></svg>';
+
+function reorderWithinGroup(fullArray, groupFilterFn, itemId, newIndexInGroup){
+  const group = fullArray.filter(groupFilterFn);
+  const oldIndex = group.findIndex(x=>x.id===itemId);
+  if(oldIndex===-1 || oldIndex===newIndexInGroup) return false;
+  const [item] = group.splice(oldIndex,1);
+  group.splice(newIndexInGroup,0,item);
+  let gi=0;
+  for(let i=0;i<fullArray.length;i++){
+    if(groupFilterFn(fullArray[i])){ fullArray[i] = group[gi++]; }
+  }
+  return true;
+}
+
+// Generic touch/mouse drag-to-reorder for a list of sibling .task elements.
+// Measures original positions once at drag start, then only uses CSS transforms
+// (no live DOM reordering) until drop, so it stays robust across devices.
+function enableDragReorder(handleEl, rowEl, onFinish){
+  handleEl.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    const container = rowEl.parentElement;
+    const siblings = Array.from(container.querySelectorAll(':scope > .task'));
+    const startIndex = siblings.indexOf(rowEl);
+    if(startIndex===-1) return;
+    const originals = siblings.map(el=>{ const r = el.getBoundingClientRect(); return { el, top:r.top, height:r.height }; });
+    const draggedHeight = originals[startIndex].height;
+    const startY = e.clientY;
+    let targetIndex = startIndex;
+
+    rowEl.classList.add('dragging');
+    try{ handleEl.setPointerCapture(e.pointerId); }catch(err){}
+
+    function onMove(ev){
+      const dy = ev.clientY - startY;
+      rowEl.style.transform = `translateY(${dy}px)`;
+      const draggedCenter = originals[startIndex].top + draggedHeight/2 + dy;
+      let count = 0;
+      originals.forEach((o,j)=>{ if(j!==startIndex && (o.top+o.height/2) < draggedCenter) count++; });
+      targetIndex = count;
+      originals.forEach((o,j)=>{
+        if(j===startIndex) return;
+        if(targetIndex > startIndex && j>startIndex && j<=targetIndex){ o.el.style.transform = `translateY(${-draggedHeight}px)`; }
+        else if(targetIndex < startIndex && j>=targetIndex && j<startIndex){ o.el.style.transform = `translateY(${draggedHeight}px)`; }
+        else { o.el.style.transform = ''; }
+      });
+    }
+    function onUp(){
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      rowEl.classList.remove('dragging');
+      originals.forEach(o=>{ o.el.style.transform=''; });
+      if(targetIndex !== startIndex) onFinish(targetIndex);
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+}
+
+function startEditTask(blockId, tk){
+  openAddForm = blockId;
+  editingTaskId = tk.id;
+  addTimeMode = tk.startTime ? 'start' : (tk.minutes ? 'duration' : 'none');
+  renderToday();
+}
+
+function renderAddTaskUI(parent, blockId, day){
+  if(openAddForm === blockId){
+    const editingTask = editingTaskId ? day.tasks.find(t=>t.id===editingTaskId) : null;
+    const form = document.createElement('div'); form.className='add-task-form';
+
+    const row1 = document.createElement('div'); row1.className='row1';
+    row1.innerHTML = `<input type="text" id="taskinput" placeholder="Task name" value="${editingTask?escapeHtml(editingTask.text):''}">`;
+    form.appendChild(row1);
+
+    const modeToggle = document.createElement('div'); modeToggle.className='mode-toggle';
+    modeToggle.innerHTML = `
+      <button type="button" data-mode="none" class="${addTimeMode==='none'?'active':''}">No time</button>
+      <button type="button" data-mode="duration" class="${addTimeMode==='duration'?'active':''}">Duration</button>
+      <button type="button" data-mode="start" class="${addTimeMode==='start'?'active':''}">Start time</button>
+    `;
+    modeToggle.querySelectorAll('button').forEach(b=>{
+      b.onclick = ()=>{ addTimeMode = b.dataset.mode; renderToday(); };
+    });
+    form.appendChild(modeToggle);
+
+    if(addTimeMode==='duration'){
+      const row2 = document.createElement('div'); row2.className='row2';
+      const prefill = editingTask && editingTask.minutes ? editingTask.minutes : '';
+      row2.innerHTML = `<input type="number" id="taskminutes" class="timefield" placeholder="Minutes, e.g. 30" min="0" step="5" value="${prefill}">`;
+      form.appendChild(row2);
+    } else if(addTimeMode==='start'){
+      const row2 = document.createElement('div'); row2.className='row2';
+      const prefill = editingTask && editingTask.startTime ? editingTask.startTime : '';
+      row2.innerHTML = `<input type="time" id="taskstart" class="timefield" value="${prefill}">`;
+      form.appendChild(row2);
+    }
+
+    if(!editingTask){
+      const repeatRow = document.createElement('label'); repeatRow.className='repeat-row';
+      repeatRow.innerHTML = `<input type="checkbox" id="taskrepeat"> Repeat every day`;
+      form.appendChild(repeatRow);
+    }
+
+    const actions = document.createElement('div'); actions.className='actions';
+    const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='cancel'; cancelBtn.textContent='Cancel';
+    const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.className='confirm'; saveBtn.textContent = editingTask ? 'Save changes' : 'Add task';
+    cancelBtn.onclick = ()=>{ openAddForm=null; editingTaskId=null; addTimeMode='none'; renderToday(); };
+
+    const confirm = ()=>{
+      const input = document.getElementById('taskinput');
+      const val = input.value.trim();
+      if(!val) return;
+      let minutes=null, startTime=null;
+      if(addTimeMode==='duration'){
+        const mins = parseInt(document.getElementById('taskminutes').value,10);
+        if(mins>0) minutes = mins;
+      } else if(addTimeMode==='start'){
+        const st = document.getElementById('taskstart').value;
+        if(st) startTime = st;
+      }
+      if(editingTask){
+        editingTask.text = val; editingTask.minutes = minutes; editingTask.startTime = startTime;
+      } else {
+        const task = {id:Date.now(), block:blockId, text:val, minutes, startTime, done:false};
+        const repeatChk = document.getElementById('taskrepeat');
+        if(repeatChk && repeatChk.checked){
+          const template = {id:Date.now()+1, block:blockId, text:val, minutes, startTime};
+          state.recurringTasks.push(template);
+          task.recurring = true; task.templateId = template.id;
+        }
+        day.tasks.push(task);
+      }
+      openAddForm=null; editingTaskId=null; addTimeMode='none';
+      saveState(); renderToday();
+    };
+    saveBtn.onclick = confirm;
+    actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+    form.appendChild(actions);
+
+    form.querySelectorAll('input[type=text],input[type=number],input[type=time]').forEach(inp=>{
+      inp.onkeydown = (e)=>{ if(e.key==='Enter') confirm(); if(e.key==='Escape') cancelBtn.onclick(); };
+    });
+    parent.appendChild(form);
+  } else {
+    const btn = document.createElement('button'); btn.className='add-task'; btn.textContent='+ add task';
+    btn.onclick = ()=>{ openAddForm=blockId; editingTaskId=null; addTimeMode='none'; renderToday(); };
+    parent.appendChild(btn);
+  }
+}
+
+let undoTimer = null;
+let pendingUndo = null;
+function ensureUndoToast(){
+  if(document.getElementById('undo-toast')) return;
+  const t = document.createElement('div'); t.id='undo-toast'; t.className='undo-toast';
+  t.innerHTML = `<span id="undo-msg"></span><button type="button" id="undo-btn">Undo</button>`;
+  document.body.appendChild(t);
+  document.getElementById('undo-btn').onclick = ()=>{
+    if(pendingUndo) pendingUndo();
+    hideUndoToast();
+  };
+}
+function showUndoToast(message, undoFn){
+  ensureUndoToast();
+  clearTimeout(undoTimer);
+  pendingUndo = undoFn;
+  document.getElementById('undo-msg').textContent = message;
+  document.getElementById('undo-toast').classList.add('show');
+  undoTimer = setTimeout(hideUndoToast, 5000);
+}
+function hideUndoToast(){
+  const t = document.getElementById('undo-toast');
+  if(t) t.classList.remove('show');
+  pendingUndo = null;
+}
+
+function deleteTask(day, taskId){
+  const idx = day.tasks.findIndex(tk=>tk.id===taskId);
+  if(idx===-1) return;
+  const removed = day.tasks[idx];
+  day.tasks.splice(idx,1);
+  saveState(); renderToday();
+  showUndoToast('Task deleted', ()=>{
+    day.tasks.splice(idx,0,removed);
+    saveState(); renderToday();
+  });
+}
+
+function taskTimeBadge(tk){
+  if(tk.startTime) return `<span class="ttime">${to12h(tk.startTime)}</span>`;
+  if(tk.minutes) return `<span class="ttime">${formatMinutes(tk.minutes)}</span>`;
+  return '';
+}
+function focusOpenInput(){
+  if(openAddForm!==null){ const el=document.getElementById('taskinput'); if(el){ el.focus(); } }
+}
+
+function getNextPrayerInfo(){
+  const key = viewKey();
+  const t = getAdjustedTimings(key);
+  if(!t) return null;
+  const now = new Date();
+  for(const p of PRAYER_ORDER){
+    const pt = parseTimeOn(viewDate, t[p]);
+    if(pt > now) return {label:PRAYER_LABEL[p], target:pt};
+  }
+  const tmrKey = dateKeyFromDate(tomorrowOf(viewDate));
+  const tmr = getAdjustedTimings(tmrKey);
+  if(tmr) return {label:'Fajr', target: parseTimeOn(tomorrowOf(viewDate), tmr.fajr)};
+  return null;
+}
+function formatCountdown(ms){
+  if(ms<0) ms=0;
+  const totalSec = Math.floor(ms/1000);
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  const pad=(n)=>String(n).padStart(2,'0');
+  return h>0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+function updateCountdownDisplay(){
+  const el = document.getElementById('countdown-el');
+  if(!el || !state.settings.showCountdown) return;
+  const info = getNextPrayerInfo();
+  if(!info){ el.textContent=''; return; }
+  const diff = info.target - new Date();
+  if(diff<=0){ renderToday(); return; }
+  el.textContent = `${info.label} in ${formatCountdown(diff)}`;
+}
+
+function renderBanner(container, day, t, now){
+  if(!state.settings.remindersOn) return;
+  const unmarked = PRAYER_ORDER.filter(p=> !day.prayers[p] && now > new Date(parseTimeOn(viewDate,t[p]).getTime()+20*60000));
+  if(unmarked.length===0) return;
+  const banner = document.createElement('div'); banner.className='banner';
+  banner.innerHTML = `Have you prayed ${unmarked.map(p=>PRAYER_LABEL[p]).join(', ')}? Tick it off so you don't lose track.`;
+  const insertAfter = container.querySelector('.countdown') || container.querySelector('.date-nav');
+  insertAfter.insertAdjacentElement('afterend', banner);
+}
+
+function formatMinutes(m){
+  if(m < 60) return m+'m';
+  const h = Math.floor(m/60), r = m%60;
+  return r===0 ? h+'h' : h+'h '+r+'m';
+}
+function to12h(hhmm){ const [h,m]=hhmm.split(':').map(Number); const period=h>=12?'pm':'am'; const h12=((h%12)||12); return `${h12}:${String(m).padStart(2,'0')}${period}`; }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function computeStreak(){
+  let streak=0, d=new Date();
+  while(true){
+    const key=dateKeyFromDate(d); const day=state.days[key];
+    if(day && PRAYER_ORDER.every(p=>day.prayers[p])){ streak++; d.setDate(d.getDate()-1); } else break;
+  }
+  return streak;
+}
+
+function dayCompleted(key){
+  const day = state.days[key]; if(!day) return {tasksDone:0,tasksTotal:0,prayersDone:0};
+  return { tasksDone: day.tasks.filter(t=>t.done).length, tasksTotal: day.tasks.length, prayersDone: PRAYER_ORDER.filter(p=>day.prayers[p]).length };
+}
+function statsForLastNDays(n){
+  let tasksDone=0, prayersDone=0;
+  for(let i=0;i<n;i++){ const c = dayCompleted(keyOffset(-i)); tasksDone+=c.tasksDone; prayersDone+=c.prayersDone; }
+  return { tasksDone, prayersDone, total: tasksDone+prayersDone };
+}
+
+function renderHistory(){
+  const container = document.getElementById('tab-history'); container.innerHTML='';
+
+  const week = statsForLastNDays(7), month = statsForLastNDays(30), year = statsForLastNDays(365);
+  const stProgress = document.createElement('div'); stProgress.className='section-title'; stProgress.textContent='Your progress';
+  container.appendChild(stProgress);
+  const statsGrid = document.createElement('div'); statsGrid.className='stat-row';
+  statsGrid.innerHTML = `
+    <div class="stat-card"><div class="num">${week.total}</div><div class="lbl">last 7 days</div></div>
+    <div class="stat-card"><div class="num">${month.total}</div><div class="lbl">last 30 days</div></div>
+    <div class="stat-card"><div class="num">${year.total}</div><div class="lbl">last 365 days</div></div>
+  `;
+  container.appendChild(statsGrid);
+
+  const todayC = dayCompleted(todayKey()), yestC = dayCompleted(keyOffset(-1));
+  const todayTotal = todayC.tasksDone+todayC.prayersDone, yestTotal = yestC.tasksDone+yestC.prayersDone;
+  const diff = todayTotal - yestTotal;
+  let diffText = diff>0 ? `${diff} more than yesterday` : diff<0 ? `${Math.abs(diff)} fewer than yesterday` : 'the same as yesterday';
+  const compare = document.createElement('div'); compare.className='compare-card';
+  compare.innerHTML = `<div class="inner">Today you've completed <strong style="font-weight:500">${todayTotal}</strong> — that's ${diffText} (${yestTotal} completed then).</div>`;
+  container.appendChild(compare);
+
+  const stAllDays = document.createElement('div'); stAllDays.className='section-title'; stAllDays.textContent='All days';
+  container.appendChild(stAllDays);
+  const listWrap = document.createElement('div'); listWrap.style.padding='0 20px';
+  const keys = Object.keys(state.days).sort().reverse();
+  if(keys.length===0){
+    listWrap.innerHTML = '<div class="empty">No days yet — start ticking things off on Today.</div>';
+  } else {
+    keys.forEach(key=>{
+      const day = state.days[key];
+      const prayed = PRAYER_ORDER.filter(p=>day.prayers[p]).length;
+      const card = document.createElement('div'); card.className='day-card';
+      const dateObj = new Date(key+'T00:00:00');
+      const label = key===todayKey() ? 'Today' : dateObj.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
+      card.innerHTML = `<div class="top"><div><div class="d">${label}</div><div class="p">${day.tasks.filter(t=>t.done).length}/${day.tasks.length} tasks done</div></div><div class="num" style="font-weight:600;font-size:15px;">${prayed}/5</div></div>`;
+      if(expandedDayKey===key){
+        const detail = document.createElement('div'); detail.className='day-detail';
+        let html = '<div class="detail-sub">Prayers</div>';
+        PRAYER_ORDER.forEach(p=>{ html += `<div class="dp-row"><span>${PRAYER_LABEL[p]}</span><span class="${day.prayers[p]?'yes':''}">${day.prayers[p]?'Prayed':'Not marked'}</span></div>`; });
+        html += '<div class="detail-sub">Tasks</div>';
+        html += day.tasks.length ? day.tasks.map(tk=>`<div class="dtask${tk.done?' done':''}">${escapeHtml(tk.text)}${tk.startTime?` · ${to12h(tk.startTime)}`:tk.minutes?` · ${formatMinutes(tk.minutes)}`:''}</div>`).join('') : '<div class="dtask">No tasks planned that day.</div>';
+        detail.innerHTML = html;
+        card.appendChild(detail);
+      }
+      card.onclick = ()=>{ expandedDayKey = (expandedDayKey===key)?null:key; renderHistory(); };
+      listWrap.appendChild(card);
+    });
+  }
+  container.appendChild(listWrap);
+}
+
+function renderSettings(){
+  const container = document.getElementById('tab-settings'); container.innerHTML='';
+  const wrap = document.createElement('div'); wrap.style.padding='4px 20px';
+
+  wrap.appendChild(settingRow('Split day by prayer times','Group tasks into blocks between prayers instead of a flat list', state.settings.blockMode, v=>{state.settings.blockMode=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Fade past blocks','Dim blocks whose prayer window has already passed', state.settings.fadePast, v=>{state.settings.fadePast=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Prayer reminders','Show a gentle nudge if a prayer hasn\'t been ticked off', state.settings.remindersOn, v=>{state.settings.remindersOn=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Next prayer countdown','Show a live countdown to the next prayer on Today', state.settings.showCountdown, v=>{state.settings.showCountdown=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Dark mode','Easier on the eyes before Fajr or after Isha', state.settings.darkMode, v=>{state.settings.darkMode=v; saveState(); applyTheme();}));
+
+  const stRepeat = document.createElement('div'); stRepeat.className='section-title'; stRepeat.style.cssText='padding:0;margin-top:22px;'; stRepeat.textContent='Repeating tasks';
+  wrap.appendChild(stRepeat);
+  const recurWrap = document.createElement('div');
+  if(state.recurringTasks.length===0){
+    recurWrap.innerHTML = '<div class="empty" style="padding:12px 0;">None yet — check "Repeat every day" when adding a task.</div>';
+  } else {
+    state.recurringTasks.forEach(rt=>{
+      const item = document.createElement('div'); item.className='recur-item';
+      const blockLabel = rt.block==='none' ? '' : ' · after '+PRAYER_LABEL[rt.block];
+      item.innerHTML = `<div><div class="rlabel">${escapeHtml(rt.text)}</div><div class="rsub">Repeats daily${blockLabel}</div></div><button class="ticon tdelete" title="Stop repeating">&#10005;</button>`;
+      item.querySelector('.tdelete').onclick = ()=>{
+        state.recurringTasks = state.recurringTasks.filter(x=>x.id!==rt.id);
+        Object.keys(state.days).forEach(k=>{
+          state.days[k].tasks = state.days[k].tasks.filter(tk=>tk.templateId!==rt.id);
+        });
+        saveState(); renderSettings(); renderToday();
+      };
+      recurWrap.appendChild(item);
+    });
+  }
+  wrap.appendChild(recurWrap);
+
+  const stLoc = document.createElement('div'); stLoc.className='section-title'; stLoc.style.cssText='padding:0;margin-top:22px;'; stLoc.textContent='Location & calculation';
+  wrap.appendChild(stLoc);
+  const locWrap = document.createElement('div');
+  const isDefault = state.location.isDefault !== false && (state.location.label||'').includes('default');
+  const locLabel = isDefault
+    ? 'Using default London coordinates — not your real location'
+    : `Using your location (${state.location.lat.toFixed(2)}, ${state.location.lng.toFixed(2)})`;
+  const locStatus = document.createElement('div'); locStatus.className='status-line'; locStatus.style.marginTop='0';
+  locStatus.textContent = locLabel;
+  locWrap.appendChild(locStatus);
+
+  const locBtn = document.createElement('button'); locBtn.className='btn btn-ghost btn-sm'; locBtn.style.marginTop='8px';
+  locBtn.textContent = isDefault ? 'Turn on location' : 'Update my location';
+  const locResult = document.createElement('div'); locResult.className='status-line';
+  locBtn.onclick = ()=>{ refreshLocation(locResult); };
+  locWrap.appendChild(locBtn);
+  locWrap.appendChild(locResult);
+
+  const methodLabel = document.createElement('div'); methodLabel.className='sub'; methodLabel.style.margin='14px 0 6px';
+  methodLabel.textContent = 'Calculation method';
+  locWrap.appendChild(methodLabel);
+  const methodSelect = document.createElement('select');
+  methodSelect.style.cssText = 'width:100%;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);';
+  const methods = [
+    {v:3, label:'Muslim World League'},
+    {v:15, label:'Moonsighting Committee Worldwide'},
+    {v:2, label:'ISNA (North America)'},
+    {v:5, label:'Egyptian General Authority'},
+    {v:1, label:'University of Islamic Sciences, Karachi'}
+  ];
+  methods.forEach(m=>{
+    const opt = document.createElement('option'); opt.value=m.v; opt.textContent=m.label;
+    if(state.settings.calcMethod===m.v) opt.selected=true;
+    methodSelect.appendChild(opt);
+  });
+  methodSelect.onchange = ()=>{
+    state.settings.calcMethod = parseInt(methodSelect.value,10);
+    saveState(); timingsCache = {};
+    Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); });
+  };
+  locWrap.appendChild(methodSelect);
+  wrap.appendChild(locWrap);
+
+  const adjLabel = document.createElement('div'); adjLabel.className='sub'; adjLabel.style.margin='18px 0 6px';
+  adjLabel.textContent = 'Adjust prayer times (match your local masjid)';
+  wrap.appendChild(adjLabel);
+  const adjWrap = document.createElement('div');
+  PRAYER_ORDER.forEach(p=>{
+    const cur = (state.settings.adjustments && state.settings.adjustments[p]) || 0;
+    const row = document.createElement('div'); row.className='setting-row';
+    row.innerHTML = `<div class="label">${PRAYER_LABEL[p]}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#8722;</button>
+        <span style="font-size:13px;min-width:52px;text-align:center;">${cur>0?'+':''}${cur} min</span>
+        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#43;</button>
+      </div>`;
+    const buttons = row.querySelectorAll('button');
+    buttons[0].onclick = ()=>{
+      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
+      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) - 1;
+      saveState(); renderSettings(); renderToday();
+    };
+    buttons[1].onclick = ()=>{
+      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
+      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) + 1;
+      saveState(); renderSettings(); renderToday();
+    };
+    adjWrap.appendChild(row);
+  });
+  wrap.appendChild(adjWrap);
+
+  const stData = document.createElement('div'); stData.className='section-title'; stData.style.cssText='padding:0;margin-top:22px;'; stData.textContent='Your data';
+  wrap.appendChild(stData);
+  const dataWrap = document.createElement('div');
+  const dataBtns = document.createElement('div'); dataBtns.className='data-btns';
+  const exportBtn = document.createElement('button'); exportBtn.className='btn btn-ghost btn-sm'; exportBtn.textContent='Export backup';
+  const importBtn = document.createElement('button'); importBtn.className='btn btn-ghost btn-sm'; importBtn.textContent='Import backup';
+  const fileInput = document.createElement('input'); fileInput.type='file'; fileInput.accept='application/json'; fileInput.style.display='none';
+  const statusLine = document.createElement('div'); statusLine.className='status-line';
+
+  exportBtn.onclick = ()=>{
+    const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `waqt-backup-${todayKey()}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    statusLine.textContent = 'Backup downloaded.';
+  };
+  importBtn.onclick = ()=>{ fileInput.click(); };
+  fileInput.onchange = (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(!parsed || typeof parsed.days !== 'object') throw new Error('bad file');
+        state = Object.assign(defaultState(), parsed);
+        state.settings = Object.assign(defaultState().settings, parsed.settings||{});
+        if(!state.recurringTasks) state.recurringTasks = [];
+        if(!state.todoList) state.todoList = [];
+        if(typeof state.scratchpad !== 'string') state.scratchpad = '';
+        if(typeof state.scratchDrawing !== 'string') state.scratchDrawing = '';
+        saveState();
+        applyTheme();
+        timingsCache = {};
+        loadPrayerTimesFor(viewDate).then(()=>{ renderToday(); renderHistory(); renderSettings(); renderTodo(); });
+        statusLine.textContent = 'Backup imported successfully.';
+      }catch(err){
+        statusLine.textContent = 'Could not read that file — make sure it\'s a Waqt backup.';
+      }
+    };
+    reader.readAsText(file);
+    fileInput.value = '';
+  };
+
+  dataBtns.appendChild(exportBtn); dataBtns.appendChild(importBtn);
+  dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine);
+  wrap.appendChild(dataWrap);
+
+  container.appendChild(wrap);
+}
+function renderTodo(){
+  const container = document.getElementById('tab-todo'); container.innerHTML='';
+
+  const topWrap = document.createElement('div'); topWrap.style.cssText='max-width:480px;margin:0 auto;padding:16px 20px 0;';
+  const dumpBtn = document.createElement('button'); dumpBtn.className='btn';
+  dumpBtn.style.cssText='background:var(--sand);color:var(--ink);border:1px solid var(--sand-line);';
+  dumpBtn.textContent = '✎ Open brain dump';
+  dumpBtn.onclick = openBrainDump;
+  topWrap.appendChild(dumpBtn);
+  container.appendChild(topWrap);
+
+  const hr = document.createElement('hr'); hr.className='divider-line'; hr.style.maxWidth='440px'; hr.style.margin='16px auto';
+  container.appendChild(hr);
+
+  const intro = document.createElement('div');
+  intro.style.cssText = 'padding:0 20px 4px;font-size:12.5px;color:var(--ink-soft);';
+  intro.textContent = "A running list — nothing here is tied to a day or time. Ticked items stay until you clear them.";
+  container.appendChild(intro);
+
+  const wrap = document.createElement('div'); wrap.style.cssText='max-width:480px;margin:14px auto 0;padding:0 20px;';
+
+  const list = state.todoList;
+  if(list.length===0 && !todoAddOpen){
+    const empty = document.createElement('div'); empty.className='empty';
+    empty.textContent = 'Nothing on your list yet.';
+    wrap.appendChild(empty);
+  }
+  list.forEach((item,i)=>{
+    const el = document.createElement('div'); el.className='task'+(item.done?' done':'');
+    el.dataset.id = item.id;
+    el.innerHTML = `<div class="tcheck"></div><span class="tlabel">${escapeHtml(item.text)}</span>
+      <span class="tmeta">
+        <button class="ticon tedit" title="Edit">&#9998;</button>
+        <button class="ticon tdelete" title="Delete">&#10005;</button>
+        <button class="ticon drag-handle" title="Drag to reorder">${GRIP_SVG}</button>
+      </span>`;
+    el.querySelector('.tcheck').onclick = ()=>{ item.done=!item.done; saveState(); renderTodo(); };
+    el.querySelector('.tdelete').onclick = ()=>{ deleteTodoItem(item.id); };
+    el.querySelector('.tedit').onclick = ()=>{ todoAddOpen=true; todoEditingId=item.id; renderTodo(); };
+    enableDragReorder(el.querySelector('.drag-handle'), el, (targetIndex)=>{
+      reorderWithinGroup(state.todoList, ()=>true, item.id, targetIndex);
+      saveState(); renderTodo();
+    });
+    wrap.appendChild(el);
+  });
+
+  const editingItem = todoEditingId ? list.find(x=>x.id===todoEditingId) : null;
+  if(todoAddOpen){
+    const form = document.createElement('div'); form.className='add-task-form';
+    form.innerHTML = `<div class="row1"><input type="text" id="todoinput" placeholder="What do you need to do?" value="${editingItem?escapeHtml(editingItem.text):''}"></div>`;
+    const actions = document.createElement('div'); actions.className='actions';
+    const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='cancel'; cancelBtn.textContent='Cancel';
+    const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.className='confirm'; saveBtn.textContent = editingItem ? 'Save changes' : 'Add';
+    cancelBtn.onclick = ()=>{ todoAddOpen=false; todoEditingId=null; renderTodo(); };
+    const confirm = ()=>{
+      const val = document.getElementById('todoinput').value.trim();
+      if(!val) return;
+      if(editingItem){ editingItem.text = val; }
+      else { state.todoList.push({id:Date.now(), text:val, done:false}); }
+      todoAddOpen=false; todoEditingId=null;
+      saveState(); renderTodo();
+    };
+    saveBtn.onclick = confirm;
+    actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+    form.appendChild(actions);
+    form.querySelector('input').onkeydown = (e)=>{ if(e.key==='Enter') confirm(); if(e.key==='Escape') cancelBtn.onclick(); };
+    wrap.appendChild(form);
+  } else {
+    const addBtn = document.createElement('button'); addBtn.className='add-task'; addBtn.textContent='+ add to list';
+    addBtn.onclick = ()=>{ todoAddOpen=true; todoEditingId=null; renderTodo(); };
+    wrap.appendChild(addBtn);
+  }
+
+  container.appendChild(wrap);
+  if(todoAddOpen){ const el=document.getElementById('todoinput'); if(el) el.focus(); }
+}
+
+function smartSplitLine(line){
+  // split on explicit sequencing connectors — deliberately conservative,
+  // so it doesn't wrongly break up things like "milk and eggs"
+  const parts = line.split(/\s*(?:,\s*)?(?:and then|after that|afterwards|then|next|;)\s*/i)
+    .map(p=>p.trim())
+    .filter(p=>p.length>0);
+  return parts.map(cleanTaskFragment).filter(t=>t.length>0);
+}
+function cleanTaskFragment(text){
+  let t = text.replace(/^[-*•\s]+/, '').trim();
+
+  // strip leading intent/filler phrases (may stack, so loop a few times)
+  const leadingPatterns = [
+    /^i\s*(?:'m|am)\s+(?:going|planning|about)\s+to\s+/i,
+    /^i\s*(?:really|also|just)?\s*(?:want|need|have|plan|got|gotta)\s+to\s+/i,
+    /^i'?ll\s+/i,
+    /^i\s+(?:should|must|will|shall)\s+/i,
+    /^let'?s\s+/i,
+    /^gonna\s+/i,
+    /^going to\s+/i,
+    /^please\s+/i,
+    /^don'?t forget to\s+/i,
+    /^remember to\s+/i,
+    /^need to\s+/i,
+    /^have to\s+/i,
+    /^to\s+/i
+  ];
+  for(let i=0;i<3;i++){
+    let changed = false;
+    for(const re of leadingPatterns){
+      if(re.test(t)){ t = t.replace(re,''); changed = true; }
+    }
+    if(!changed) break;
+  }
+
+  // strip a small set of generic filler verbs when they lead into a clear object
+  // (e.g. "start maths homework" -> "maths homework", "eat food" -> "food")
+  t = t.replace(/^(?:start|begin|do|get|have|eat)\s+(?=\S)/i, '');
+
+  // strip trailing time-filler adverbs
+  for(let i=0;i<2;i++){
+    t = t.replace(/\s*(?:early|late|soon|now|later|today|tonight|asap|first)\.?$/i, '').trim();
+  }
+
+  t = t.replace(/[.\s]+$/, '').trim();
+  if(t.length===0) return text.trim(); // safety net — never lose content entirely
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function deleteTodoItem(itemId){
+  const idx = state.todoList.findIndex(x=>x.id===itemId);
+  if(idx===-1) return;
+  const removed = state.todoList[idx];
+  state.todoList.splice(idx,1);
+  saveState(); renderTodo();
+  showUndoToast('Removed from list', ()=>{
+    state.todoList.splice(idx,0,removed);
+    saveState(); renderTodo();
+  });
+}
+
+function openBrainDump(){
+  ensureBrainModal();
+  document.getElementById('brain-overlay').classList.add('active');
+  document.getElementById('brain-card').classList.remove('fullscreen');
+  document.getElementById('brain-expand-btn').innerHTML = '&#10021;';
+  renderBrainBody();
+}
+function closeBrainDump(){
+  if(brainMode==='draw') saveCanvasSnapshot();
+  document.getElementById('brain-overlay').classList.remove('active');
+  renderTodo();
+}
+function toggleBrainFullscreen(){
+  if(brainMode==='draw') saveCanvasSnapshot();
+  const card = document.getElementById('brain-card');
+  const isFull = card.classList.toggle('fullscreen');
+  document.getElementById('brain-expand-btn').innerHTML = isFull ? '&#10538;' : '&#10021;';
+  if(brainMode==='draw') setTimeout(setupCanvas, 60);
+}
+function ensureBrainModal(){
+  if(document.getElementById('brain-overlay')) return;
+  const overlay = document.createElement('div'); overlay.id='brain-overlay'; overlay.className='brain-overlay';
+  overlay.innerHTML = `
+    <div class="brain-card" id="brain-card">
+      <div class="brain-header">
+        <div class="btitle">Brain dump</div>
+        <div class="brain-header-btns">
+          <button class="brain-icon-btn" id="brain-expand-btn" type="button" title="Expand">&#10021;</button>
+          <button class="brain-icon-btn" id="brain-close-btn" type="button" title="Close">&#10005;</button>
+        </div>
+      </div>
+      <div class="brain-tabs">
+        <button id="brain-tab-type" type="button">Type</button>
+        <button id="brain-tab-draw" type="button">Draw</button>
+      </div>
+      <div class="brain-body" id="brain-body"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeBrainDump(); });
+  document.getElementById('brain-close-btn').onclick = closeBrainDump;
+  document.getElementById('brain-expand-btn').onclick = toggleBrainFullscreen;
+  document.getElementById('brain-tab-type').onclick = ()=>switchBrainMode('type');
+  document.getElementById('brain-tab-draw').onclick = ()=>switchBrainMode('draw');
+}
+function switchBrainMode(mode){
+  if(brainMode==='draw' && mode!=='draw') saveCanvasSnapshot();
+  brainMode = mode;
+  renderBrainBody();
+}
+function renderBrainBody(){
+  document.getElementById('brain-tab-type').classList.toggle('active', brainMode==='type');
+  document.getElementById('brain-tab-draw').classList.toggle('active', brainMode==='draw');
+  const body = document.getElementById('brain-body');
+  body.innerHTML = '';
+
+  if(brainMode==='type'){
+    const ta = document.createElement('textarea'); ta.className='brain-textarea'; ta.id='brain-textarea';
+    ta.placeholder = 'Everything on your mind, one thing per line…';
+    ta.value = state.scratchpad||'';
+    ta.oninput = ()=>{ state.scratchpad = ta.value; saveState(); };
+    body.appendChild(ta);
+
+    const actions = document.createElement('div'); actions.className='brain-actions';
+    const clearBtn = document.createElement('button'); clearBtn.type='button'; clearBtn.className='btn btn-ghost btn-sm'; clearBtn.textContent='Clear';
+    const turnBtn = document.createElement('button'); turnBtn.type='button'; turnBtn.className='btn btn-sm'; turnBtn.style.cssText='background:var(--sage);color:#fff;'; turnBtn.textContent='Turn into list items';
+    clearBtn.onclick = ()=>{ state.scratchpad=''; saveState(); renderBrainBody(); };
+    turnBtn.onclick = ()=>{
+      const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+      if(lines.length===0) return;
+      const tasks = [];
+      lines.forEach(line=>{ smartSplitLine(line).forEach(t=>tasks.push(t)); });
+      tasks.forEach(t=>{ state.todoList.push({id:Date.now()+Math.random(), text:t, done:false}); });
+      state.scratchpad=''; saveState(); renderBrainBody();
+    };
+    actions.appendChild(clearBtn); actions.appendChild(turnBtn);
+    body.appendChild(actions);
+    setTimeout(()=>ta.focus(), 0);
+  } else {
+    const colors = ['#2B2B26','#5C7A5C','#C97B4A','#6B6A62'];
+    const colorRow = document.createElement('div'); colorRow.className='brain-colors';
+    colors.forEach(c=>{
+      const dot = document.createElement('button'); dot.type='button'; dot.className='brain-color'+(c===currentColor?' active':'');
+      dot.style.background=c;
+      dot.onclick = ()=>{ currentColor=c; colorRow.querySelectorAll('.brain-color').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); };
+      colorRow.appendChild(dot);
+    });
+    const eraseBtn = document.createElement('button'); eraseBtn.type='button'; eraseBtn.className='btn btn-ghost btn-sm'; eraseBtn.style.marginLeft='auto'; eraseBtn.textContent='Eraser';
+    eraseBtn.onclick = ()=>{ currentColor='ERASER'; colorRow.querySelectorAll('.brain-color').forEach(d=>d.classList.remove('active')); };
+    colorRow.appendChild(eraseBtn);
+    body.appendChild(colorRow);
+
+    const canvasWrap = document.createElement('div'); canvasWrap.className='brain-canvas-wrap';
+    const canvas = document.createElement('canvas'); canvas.id='brain-canvas';
+    canvasWrap.appendChild(canvas);
+    body.appendChild(canvasWrap);
+
+    const actions = document.createElement('div'); actions.className='brain-actions';
+    const clearBtn = document.createElement('button'); clearBtn.type='button'; clearBtn.className='btn btn-ghost btn-sm'; clearBtn.textContent='Clear drawing';
+    clearBtn.onclick = ()=>{
+      const c = document.getElementById('brain-canvas');
+      if(drawCtx && c) drawCtx.clearRect(0,0,c.width,c.height);
+      state.scratchDrawing=''; saveState();
+    };
+    actions.appendChild(clearBtn);
+    body.appendChild(actions);
+
+    setTimeout(setupCanvas, 0);
+  }
+}
+function setupCanvas(){
+  const canvas = document.getElementById('brain-canvas');
+  if(!canvas) return;
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  canvas.width = Math.max(1, rect.width*dpr);
+  canvas.height = Math.max(1, rect.height*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  drawCtx = ctx;
+
+  if(state.scratchDrawing){
+    const img = new Image();
+    img.onload = ()=>{ ctx.drawImage(img,0,0, rect.width, rect.height); };
+    img.src = state.scratchDrawing;
+  }
+
+  let isDrawing=false, lastX=0, lastY=0;
+  const getPos = (e)=>{ const r = canvas.getBoundingClientRect(); return { x: e.clientX-r.left, y: e.clientY-r.top }; };
+  canvas.onpointerdown = (e)=>{
+    isDrawing=true;
+    const p = getPos(e); lastX=p.x; lastY=p.y;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  };
+  canvas.onpointermove = (e)=>{
+    if(!isDrawing) return;
+    const p = getPos(e);
+    ctx.strokeStyle = currentColor==='ERASER' ? '#FFFFFF' : currentColor;
+    ctx.lineWidth = currentColor==='ERASER' ? 18 : 3;
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke();
+    lastX=p.x; lastY=p.y;
+  };
+  const endStroke = ()=>{ if(isDrawing){ isDrawing=false; saveCanvasSnapshot(); } };
+  canvas.onpointerup = endStroke;
+  canvas.onpointerleave = endStroke;
+  canvas.onpointercancel = endStroke;
+}
+function saveCanvasSnapshot(){
+  const canvas = document.getElementById('brain-canvas');
+  if(!canvas) return;
+  try{ state.scratchDrawing = canvas.toDataURL('image/png'); saveState(); }catch(e){}
+}
+
+function settingRow(label, sub, value, onChange){
+  const row = document.createElement('div'); row.className='setting-row';
+  row.innerHTML = `<div><div class="label">${label}</div><div class="sub">${sub}</div></div><div class="switch ${value?'on':''}"><div class="knob"></div></div>`;
+  const sw = row.querySelector('.switch');
+  sw.onclick = ()=>{ const nv=!sw.classList.contains('on'); sw.classList.toggle('on', nv); onChange(nv); };
+  return row;
+}
+
+if(state.onboarded){
+  const entryBtn = document.getElementById('entry-btn');
+  entryBtn.textContent = 'Continue';
+  entryBtn.onclick = launchApp;
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* offline support just won't be available — the app still works fine online */ });
+  });
+}
+</script>
+</body>
+</html>
