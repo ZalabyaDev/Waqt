@@ -1,0 +1,2396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waqt — plan your day around prayer</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FAF8F3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Waqt">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF8F3; --ink:#2B2B26; --ink-soft:#6B6A62;
+    --sage:#5C7A5C; --sage-soft:#E4EAE1; --terracotta:#C97B4A;
+    --sand:#E8E3D6; --sand-line:#DAD4C3; --white:#FFFFFF; --surface:#FFFFFF;
+    --radius:14px; --radius-sm:9px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#171713; --ink:#EDEAE0; --ink-soft:#9C978A;
+    --sage:#7FA07C; --sage-soft:#24312A; --terracotta:#D99567;
+    --sand:#242420; --sand-line:#3A3A33; --surface:#1F1F1B;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+  button{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+  .screen{display:none;min-height:100vh;flex-direction:column;}
+  .screen.active{display:flex;}
+  .wrap{max-width:480px;margin:0 auto;width:100%;padding:0 20px;flex:1;display:flex;flex-direction:column;}
+
+  #onboarding .wrap{justify-content:center;text-align:center;padding-top:60px;padding-bottom:60px;}
+  .ayah{font-family:'Lora',serif;font-style:italic;font-size:22px;line-height:1.7;margin:0 0 14px;}
+  .ayah-arabic{font-family:'Amiri',serif;font-size:27px;line-height:2;color:var(--ink);margin:0 0 16px;}
+  .ayah-ref{font-size:13px;color:var(--ink-soft);margin-bottom:48px;}
+  .brandmark{font-family:'Lora',serif;font-size:17px;color:var(--sage);margin-bottom:40px;}
+  .tagline{font-size:15px;color:var(--ink-soft);margin-bottom:36px;line-height:1.6;}
+
+  .btn{display:block;width:100%;background:var(--sage);color:var(--white);border:none;border-radius:var(--radius-sm);padding:14px 20px;font-size:15px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;text-align:center;}
+  .btn:active{opacity:0.85;}
+  .btn-ghost{background:transparent;color:var(--sage);border:1px solid var(--sand-line);}
+  .btn-sm{padding:8px 14px;font-size:12.5px;width:auto;border-radius:8px;}
+  .option{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px 16px;font-family:'Inter',sans-serif;font-size:14px;margin-bottom:10px;cursor:pointer;}
+  .option.selected{border-color:var(--sage);background:var(--sage-soft);}
+  .step-label{font-size:13px;color:var(--ink-soft);margin-bottom:8px;}
+  .step-title{font-family:'Lora',serif;font-size:21px;margin:0 0 24px;}
+
+  header.appbar{padding:18px 20px 14px;max-width:480px;margin:0 auto;width:100%;display:flex;justify-content:space-between;align-items:baseline;}
+  header.appbar .title{font-family:'Lora',serif;font-size:19px;}
+
+  nav.tabbar{position:sticky;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--sand-line);display:flex;padding:10px 0 calc(10px + env(safe-area-inset-bottom));}
+  nav.tabbar button{flex:1;background:none;border:none;font-family:'Inter',sans-serif;font-size:12px;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 0;}
+  nav.tabbar button.active{color:var(--sage);font-weight:500;}
+  nav.tabbar .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0;}
+  nav.tabbar button.active .dot{opacity:1;}
+
+  main.content{flex:1;overflow-y:auto;padding-bottom:12px;}
+
+  .date-nav{display:flex;align-items:center;justify-content:space-between;max-width:480px;margin:0 auto;padding:0 20px 10px;}
+  .date-nav .arrow{background:var(--surface);border:1px solid var(--sand-line);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer;color:var(--ink);}
+  .date-nav .label-wrap{text-align:center;}
+  .date-nav .rel{font-size:14px;font-weight:500;}
+  .date-nav .sub{font-size:11.5px;color:var(--ink-soft);}
+  .jump-today{display:block;margin:0 auto 10px;}
+
+  .countdown{max-width:440px;margin:0 auto 14px;padding:0 20px;text-align:center;font-size:12.5px;color:var(--sage);font-weight:500;}
+
+  .banner{background:var(--sand);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;margin:0 20px 14px;max-width:440px;}
+
+  .block-wrap{max-width:480px;margin:0 auto;padding:0 20px;}
+  .prayer-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .prayer-row .check{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--sand-line);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--surface);font-size:12px;}
+  .prayer-row .check.done{background:var(--sage);border-color:var(--sage);color:var(--white);}
+  .prayer-row .name{font-size:14px;font-weight:500;}
+  .prayer-row .time{font-size:12px;color:var(--ink-soft);margin-left:auto;}
+
+  .block{border-left:2px solid var(--sand-line);margin:0 0 6px 10px;padding:6px 0 14px 18px;}
+  .block.past{opacity:0.45;}
+  .task{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;font-size:13.5px;display:flex;align-items:center;gap:8px;}
+  .task .tcheck{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--sand-line);flex-shrink:0;cursor:pointer;background:var(--surface);}
+  .task.done .tcheck{background:var(--terracotta);border-color:var(--terracotta);}
+  .task.done span.tlabel{text-decoration:line-through;color:var(--ink-soft);}
+  .task .tlabel{flex:1;min-width:0;overflow-wrap:break-word;}
+  .add-task{border:1px dashed var(--sand-line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--ink-soft);background:transparent;width:100%;text-align:left;cursor:pointer;font-family:'Inter',sans-serif;}
+  .add-task-form{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:10px;}
+  .add-task-form .row1{display:flex;gap:6px;}
+  .add-task-form input[type=text],.add-task-form input[type=number],.add-task-form input[type=time]{padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;background:var(--bg);color:var(--ink);}
+  .add-task-form input#taskinput{flex:1;min-width:0;}
+  .add-task-form input:focus{outline:none;border-color:var(--sage);}
+  .mode-toggle{display:flex;gap:6px;}
+  .mode-toggle button{flex:1;background:var(--bg);border:1px solid var(--sand-line);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .mode-toggle button.active{background:var(--sage-soft);border-color:var(--sage);color:var(--sage);font-weight:500;}
+  .add-task-form .row2{display:flex;gap:6px;align-items:center;}
+  .add-task-form .row2 .timefield{flex:1;}
+  .repeat-row{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);padding:2px 0;}
+  .repeat-row input{width:15px;height:15px;}
+  .add-task-form .actions{display:flex;justify-content:flex-end;gap:6px;}
+  .add-task-form button.confirm{background:var(--sage);color:var(--white);border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;}
+  .add-task-form button.cancel{background:transparent;color:var(--ink-soft);border:1px solid var(--sand-line);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;}
+  .task .tmeta{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:4px;}
+  .task .ticon{width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+  .task .ticon:hover{color:var(--sage);}
+  .task .ticon.tdelete:hover{color:var(--terracotta);}
+  .task .ticon:disabled{opacity:0.25;cursor:default;}
+  .task.later{opacity:0.62;}
+  .mm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+  .mm-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-soft);}
+  .mm-grid .timefield{width:100%;padding:8px;border:1px solid var(--sand-line);border-radius:8px;background:var(--surface);color:var(--ink);font-family:'Inter',sans-serif;}
+  .tip-card{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px));max-width:456px;margin:0 auto;background:var(--surface);border:1px solid var(--sage);border-radius:14px;padding:14px 16px 12px;box-shadow:0 10px 30px rgba(0,0,0,0.18);z-index:900;font-size:13px;line-height:1.5;}
+  .tip-card .tip-title{font-family:'Lora',serif;font-size:16px;margin-bottom:6px;}
+  .tip-card ul{margin:0 0 10px;padding-left:18px;color:var(--ink);}
+  .tip-card li{margin-bottom:4px;}
+  .tip-card .btn{width:auto;}
+  .repeat-days{display:flex;flex-direction:column;gap:8px;margin:2px 0 6px;}
+  .day-chips{display:flex;gap:5px;}
+  .day-chip{width:32px;height:32px;border-radius:50%;border:1px solid var(--sand-line);background:var(--surface);color:var(--ink);font-family:'Inter',sans-serif;font-size:12.5px;cursor:pointer;padding:0;}
+  .day-chip.on{background:var(--sage);border-color:var(--sage);color:#fff;}
+  .day-chips.small{margin-top:6px;}
+  .day-chips.small .day-chip{width:26px;height:26px;font-size:11px;}
+  .day-presets{display:flex;gap:6px;flex-wrap:wrap;}
+  .add-task-form .row2.slot-wrap{flex-direction:column;align-items:stretch;gap:8px;}
+  .slot-row{display:flex;gap:10px;}
+  .slot-row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--ink-soft);}
+  .slot-row .timefield{width:100%;}
+  .slot-hint{font-size:12px;color:var(--ink-soft);}
+  .dur-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .dur-chip{border:1px solid var(--sand-line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 11px;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;}
+  .dur-chip.active{background:var(--sage);border-color:var(--sage);color:#fff;}
+  .div-input{flex:0 1 150px;min-width:0;border:1px solid var(--sage);border-radius:999px;padding:5px 12px;font-size:12px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);text-align:center;}
+  .div-input:focus{outline:none;}
+  .block.drop-block{background:rgba(127,150,120,0.10);border-radius:6px;}
+  .task.drop-before{box-shadow:0 -3px 0 0 var(--sage);}
+  .block.drop-end{box-shadow:0 3px 0 0 var(--sage);}
+  .date-nav .label-wrap{cursor:pointer;background:none;border:none;font-family:inherit;color:inherit;padding:2px 8px;border-radius:8px;}
+  .date-nav .label-wrap .caret{font-size:10px;color:var(--ink-soft);margin-left:3px;}
+  .cal-card{background:var(--bg);border-radius:18px;width:100%;max-width:340px;padding:16px 14px 12px;box-shadow:0 16px 48px rgba(0,0,0,0.28);}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-title{font-family:'Lora',serif;font-size:16px;}
+  .cal-nav{background:var(--surface);border:1px solid var(--sand-line);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer;color:var(--ink);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-dow{font-size:11px;color:var(--ink-soft);text-align:center;padding:4px 0;}
+  .cal-day{position:relative;aspect-ratio:1;border:none;background:none;border-radius:50%;font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);cursor:pointer;}
+  .cal-day.today{border:1px solid var(--sage);}
+  .cal-day.sel{background:var(--sage);color:#fff;}
+  .cal-day.has::after{content:'';position:absolute;bottom:4px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--sage);}
+  .cal-day.sel.has::after{background:#fff;}
+  .cal-foot{display:flex;justify-content:space-between;margin-top:10px;}
+  .task.divider-row:not(.dragging){background:transparent;border:none;padding:4px 0;margin-bottom:6px;gap:8px;}
+  .divider-row .div-line{flex:1;height:0;border-top:2px dashed var(--sand-line);}
+  .divider-row .div-label{background:var(--sand);border:1px solid var(--sand-line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
+  .divider-row .tmeta{margin-left:0;}
+  .task .drag-handle{cursor:grab;touch-action:none;color:var(--ink-soft);}
+  .task .drag-handle:active{cursor:grabbing;}
+  .task.dragging{position:relative;z-index:50;box-shadow:0 10px 24px rgba(0,0,0,0.18);background:var(--surface);}
+  .task .ttime{font-size:11.5px;color:var(--ink-soft);background:var(--sand);border-radius:6px;padding:2px 7px;white-space:nowrap;}
+  .task.done .ttime{color:var(--ink-soft);}
+  .task .trecur{font-size:11px;color:var(--sage);}
+
+  .stat-row{display:flex;gap:10px;max-width:480px;margin:4px auto 18px;padding:0 20px;flex-wrap:wrap;}
+  .stat-card{flex:1;min-width:90px;background:var(--sand);border-radius:var(--radius-sm);padding:12px 14px;}
+  .stat-card .num{font-size:19px;font-weight:600;}
+  .stat-card .lbl{font-size:11.5px;color:var(--ink-soft);}
+
+  .setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--sand-line);}
+  .setting-row .label{font-size:14px;}
+  .setting-row .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .switch{width:42px;height:24px;border-radius:12px;background:var(--sand-line);position:relative;cursor:pointer;flex-shrink:0;}
+  .switch.on{background:var(--sage);}
+  .switch .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--white);transition:left .15s;}
+  .switch.on .knob{left:20px;}
+
+
+  .section-title{font-size:13px;color:var(--ink-soft);margin:18px 0 10px;padding:0 20px;}
+  .empty{font-size:13px;color:var(--ink-soft);padding:20px;text-align:center;}
+
+  .recur-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--sand-line);font-size:13px;}
+  .scratchpad{width:100%;min-height:110px;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);resize:vertical;line-height:1.6;}
+  .scratchpad:focus{outline:none;}
+  .divider-line{border:none;border-top:1px solid var(--sand-line);margin:16px 0;}
+
+  .brain-overlay{position:fixed;inset:0;background:rgba(43,43,38,0.45);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;}
+  .brain-overlay.active{display:flex;}
+  .notice-card{background:var(--bg);border-radius:18px;width:100%;max-width:380px;padding:24px 22px 18px;box-shadow:0 16px 48px rgba(0,0,0,0.28);}
+  .notice-title{font-family:'Lora',serif;font-size:19px;margin-bottom:10px;}
+  .notice-body{font-size:14px;line-height:1.55;color:var(--ink);}
+  .notice-body p{margin:0 0 10px;}
+  .notice-actions{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
+  .notice-link{background:none;border:none;color:var(--ink-soft);font-family:'Inter',sans-serif;font-size:12.5px;cursor:pointer;padding:8px;text-decoration:underline;}
+  .brain-card{background:var(--bg);border-radius:18px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.28);overflow:hidden;}
+  .brain-card.fullscreen{max-width:100%;max-height:100%;width:100%;height:100%;border-radius:0;}
+  .brain-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 12px;border-bottom:1px solid var(--sand-line);flex-shrink:0;}
+  .brain-card.fullscreen .brain-header{padding-top:calc(16px + env(safe-area-inset-top,0px));}
+  .brain-header .btitle{font-family:'Lora',serif;font-size:17px;}
+  .brain-header-btns{display:flex;gap:4px;}
+  .brain-icon-btn{background:none;border:none;font-size:17px;color:var(--ink-soft);cursor:pointer;padding:4px 8px;}
+  .brain-tabs{display:flex;gap:8px;padding:12px 18px 0;flex-shrink:0;}
+  .brain-tabs button{flex:1;background:var(--sand);border:1px solid var(--sand-line);border-radius:8px;padding:9px;font-size:13px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .brain-tabs button.active{background:var(--sage);color:#fff;border-color:var(--sage);font-weight:500;}
+  .brain-body{flex:1;padding:14px 18px 18px;display:flex;flex-direction:column;min-height:0;overflow:auto;}
+  .brain-card.fullscreen .brain-body{padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));}
+  .brain-textarea{flex:1;width:100%;min-height:140px;border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px;font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);resize:none;background:var(--surface);}
+  .brain-textarea:focus{outline:none;border-color:var(--sage);}
+  .brain-canvas-wrap{flex:1;min-height:180px;border:1px solid var(--sand-line);border-radius:var(--radius-sm);background:var(--surface);position:relative;overflow:hidden;touch-action:none;}
+  .brain-canvas-wrap canvas{width:100%;height:100%;display:block;touch-action:none;}
+  .brain-colors{display:flex;gap:10px;padding-bottom:10px;align-items:center;flex-shrink:0;}
+  .brain-color{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0;}
+  .brain-color.active{border-color:var(--ink);}
+  .cel-card{background:var(--bg);border-radius:20px;width:100%;max-width:320px;padding:28px 22px 18px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.28);animation:celIn .35s ease-out;}
+  .cel-badge{width:84px;height:84px;margin:0 auto 14px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:30px;box-shadow:0 0 0 8px rgba(127,150,120,0.18);}
+  .cel-title{font-family:'Lora',serif;font-size:20px;margin-bottom:6px;}
+  .cel-sub{font-size:13.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:18px;}
+  @keyframes celIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .cel-card{animation:none;} }
+  .brain-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:10px;flex-shrink:0;}
+  .bp-head{font-size:13px;color:var(--ink-soft);margin-bottom:10px;}
+  .bp-list{display:flex;flex-direction:column;gap:6px;overflow:auto;flex:1;min-height:0;}
+  .bp-row{display:flex;gap:4px;align-items:center;}
+  .bp-input{flex:1;min-width:0;border:1px solid var(--sand-line);border-radius:8px;padding:9px 10px;font-size:14px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);}
+  .bp-input:focus{outline:none;border-color:var(--sage);}
+  .bp-btn{border:1px solid var(--sand-line);background:var(--surface);color:var(--ink-soft);border-radius:8px;padding:8px 8px;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;flex-shrink:0;}
+  .bp-btn:disabled{opacity:0.3;cursor:default;}
+  .recur-item .rlabel{flex:1;}
+  .recur-item .rsub{font-size:11.5px;color:var(--ink-soft);}
+  .data-btns{display:flex;gap:8px;margin:10px 0 4px;}
+  .status-line{font-size:12px;color:var(--sage);margin-top:8px;min-height:14px;}
+
+  /* ---------- Progress tab ---------- */
+  .prog-wrap{max-width:480px;margin:0 auto;padding:4px 20px 8px;}
+  .pcard{background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+  .pcard-title{font-size:13px;font-weight:500;margin-bottom:12px;}
+  .lv-top{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+  .lv-num{width:52px;height:52px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-size:24px;flex-shrink:0;}
+  .lv-label{font-size:12px;color:var(--ink-soft);}
+  .lv-title{font-family:'Lora',serif;font-size:19px;}
+  .lv-bar{height:9px;border-radius:5px;background:var(--sand);overflow:hidden;}
+  .lv-fill{height:100%;background:var(--sage);border-radius:5px;transition:width .3s;}
+  .lv-sub{font-size:12px;color:var(--ink-soft);margin-top:8px;}
+  .pnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+  .pnav-btn{background:var(--bg);border:1px solid var(--sand-line);border-radius:8px;width:32px;height:32px;font-size:14px;cursor:pointer;color:var(--ink);flex-shrink:0;}
+  .pnav-btn:disabled{opacity:0.3;cursor:default;}
+  .pnav-main{font-size:13.5px;font-weight:500;text-align:center;}
+  .wk-summary{font-size:13px;line-height:1.5;margin-bottom:10px;}
+  .wk-summary strong{font-weight:600;}
+  .wk-legend{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft);margin-bottom:12px;flex-wrap:wrap;}
+  .wk-legend .lg{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .wk-legend .lg.cur{background:var(--sage);}
+  .wk-legend .lg.prev{background:var(--ink-soft);opacity:0.4;margin-left:8px;}
+  .wk-chart{display:flex;gap:6px;align-items:flex-end;}
+  .wk-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;}
+  .wk-col.future{opacity:0.45;}
+  .wk-bars{height:112px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-top:14px;}
+  .wk-bar{flex:1;max-width:16px;border-radius:4px 4px 0 0;position:relative;min-width:6px;}
+  .wk-bar.cur{background:var(--sage);}
+  .wk-bar.prev{background:var(--ink-soft);opacity:0.4;}
+  .wk-bar.hist{background:var(--sage);opacity:0.5;}
+  .wk-bars.single .wk-bar{max-width:26px;}
+  .wk-bar span{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--ink-soft);}
+  .wk-day{font-size:10.5px;color:var(--ink-soft);margin-top:6px;}
+  .wk-day.today{color:var(--sage);font-weight:600;}
+  .wk-foot{font-size:11px;color:var(--ink-soft);margin-top:10px;}
+  .panel{padding:0;overflow:hidden;}
+  .panel .pnav{padding:14px 14px 0;margin-bottom:12px;}
+  .date-range{display:flex;gap:28px;padding:0 16px 14px;}
+  .dr-lbl{font-size:11.5px;color:var(--ink-soft);}
+  .dr-val{font-size:14px;font-weight:600;margin-top:2px;}
+  .psec{padding:16px;border-top:1px solid var(--sand-line);}
+  .psec-title{font-size:13px;font-weight:600;margin-bottom:12px;}
+  .ring-sec{display:flex;align-items:center;gap:18px;}
+  .ring{width:104px;height:104px;flex-shrink:0;}
+  .ring-bg{fill:none;stroke:var(--sand);stroke-width:11;}
+  .ring-fg{fill:none;stroke:var(--sage);stroke-width:11;stroke-linecap:round;}
+  .ring-text{font-family:'Lora',serif;font-size:21px;fill:var(--ink);}
+  .ring-cap{font-size:14px;line-height:1.4;}
+  .ring-cap strong{font-weight:600;}
+  .ring-cap .sub{font-size:12px;color:var(--ink-soft);}
+  .cmp{display:flex;justify-content:center;gap:44px;height:150px;margin-bottom:10px;}
+  .cmp-col{width:76px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .cmp-val{font-size:13px;font-weight:600;margin-bottom:4px;}
+  .cmp-bar{width:100%;border-radius:6px 6px 0 0;min-height:2px;max-height:calc(100% - 44px);}
+  .cmp-bar.cur{background:var(--sage);}
+  .cmp-bar.prev{background:var(--ink-soft);opacity:0.4;}
+  .cmp-name{font-size:11.5px;color:var(--ink-soft);margin-top:8px;text-align:center;white-space:nowrap;}
+  .hb-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+  .hb-label{width:64px;font-size:12.5px;flex-shrink:0;}
+  .hb-track{flex:1;height:12px;background:var(--sand);border-radius:6px;overflow:hidden;}
+  .hb-fill{height:100%;background:var(--sage);border-radius:6px;}
+  .hb-val{width:34px;text-align:right;font-size:12px;font-weight:600;flex-shrink:0;}
+
+
+  .save-warn{position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));background:var(--terracotta);color:#fff;padding:12px 14px;border-radius:11px;font-size:13px;line-height:1.4;z-index:1400;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+  .undo-toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:11px;font-size:13px;display:flex;align-items:center;gap:16px;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:1200;opacity:0;pointer-events:none;transition:opacity .18s, transform .18s;max-width:90vw;}
+  .undo-toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+  .undo-toast button{background:none;border:none;color:var(--sage);font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;}
+  :root[data-theme="dark"] .undo-toast button{color:var(--terracotta);}
+</style>
+</head>
+<body>
+
+<div id="onboarding" class="screen active">
+  <div class="wrap">
+    <div class="brandmark">Waqt</div>
+    <p class="ayah-arabic" dir="rtl" lang="ar">وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰ</p>
+    <p class="ayah">"And that there is not for man except that [good] for which he strives."</p>
+    <p class="ayah-ref">Surah An-Najm, 53:39 — Sahih International</p>
+    <p class="tagline">Waqt helps you build your day around your prayers — not squeeze your prayers into your day.</p>
+    <button class="btn" id="entry-btn" onclick="goTo('personalize1')">Begin</button>
+  </div>
+</div>
+
+<div id="personalize1" class="screen">
+  <div class="wrap" style="padding-top:60px;">
+    <div class="step-label">1 of 2</div>
+    <h2 class="step-title">What best describes you right now?</h2>
+    <div id="p1-options"></div>
+    <div style="margin-top:24px;"></div>
+    <button class="btn" onclick="goTo('personalize2')">Continue</button>
+  </div>
+</div>
+
+<div id="personalize2" class="screen">
+  <div class="wrap" style="padding-top:60px;">
+    <div class="step-label">2 of 2</div>
+    <h2 class="step-title">What do you want Waqt to help with most?</h2>
+    <div id="p2-options"></div>
+    <div style="margin-top:24px;"></div>
+    <button class="btn" onclick="finishOnboarding()">Set up my day</button>
+  </div>
+</div>
+
+<div id="app" class="screen">
+  <header class="appbar">
+    <div class="title" id="app-title">Today</div>
+  </header>
+  <main class="content">
+    <div id="tab-today"></div>
+    <div id="tab-todo" style="display:none;"></div>
+    <div id="tab-progress" style="display:none;"></div>
+    <div id="tab-settings" style="display:none;"></div>
+  </main>
+  <nav class="tabbar">
+    <button class="active" data-tab="today" onclick="switchTab('today')"><span class="dot"></span>Today</button>
+    <button data-tab="todo" onclick="switchTab('todo')"><span class="dot"></span>To-Do</button>
+    <button data-tab="progress" onclick="switchTab('progress')"><span class="dot"></span>Progress</button>
+    <button data-tab="settings" onclick="switchTab('settings')"><span class="dot"></span>Settings</button>
+  </nav>
+</div>
+
+<script>
+const STORAGE_KEY = 'anchorState';
+const PRAYER_ORDER = ['fajr','dhuhr','asr','maghrib','isha'];
+const PRAYER_LABEL = {fajr:'Fajr',dhuhr:'Dhuhr',asr:'Asr',maghrib:'Maghrib',isha:'Isha'};
+
+const METHODS = [
+  {v:3, label:'Muslim World League'},
+  {v:15, label:'Moonsighting Committee Worldwide'},
+  {v:2, label:'ISNA (North America)'},
+  {v:5, label:'Egyptian General Authority'},
+  {v:1, label:'University of Islamic Sciences, Karachi'},
+  {v:4, label:'Umm Al-Qura, Makkah'},
+  {v:8, label:'Gulf Region'},
+  {v:9, label:'Kuwait'},
+  {v:10, label:'Qatar'},
+  {v:16, label:'Dubai'},
+  {v:13, label:'Diyanet, Turkey'},
+  {v:12, label:'France (UOIF)'},
+  {v:14, label:'Russia (Spiritual Administration)'},
+  {v:17, label:'Malaysia (JAKIM)'},
+  {v:11, label:'Singapore (MUIS)'},
+  {v:20, label:'Indonesia (Kemenag)'},
+  {v:7, label:'Tehran'},
+  {v:18, label:'Tunisia'},
+  {v:19, label:'Algeria'},
+  {v:21, label:'Morocco'},
+  {v:22, label:'Portugal'},
+  {v:23, label:'Jordan'}
+];
+// Best-guess starting method from the device's time zone. Users can change it in Settings.
+function guessMethod(){
+  let tz = '';
+  try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){}
+  const exact = {
+    'Asia/Riyadh':4,'Asia/Aden':4,'Asia/Dubai':16,'Asia/Muscat':8,'Asia/Bahrain':8,'Asia/Kuwait':9,'Asia/Qatar':10,
+    'Asia/Karachi':1,'Asia/Dhaka':1,'Asia/Kolkata':1,'Asia/Calcutta':1,'Asia/Kabul':1,
+    'Asia/Kuala_Lumpur':17,'Asia/Kuching':17,'Asia/Singapore':11,'Asia/Jakarta':20,'Asia/Makassar':20,'Asia/Jayapura':20,
+    'Asia/Tehran':7,'Asia/Amman':23,'Europe/Istanbul':13,'Asia/Istanbul':13,'Europe/Paris':12,'Europe/Moscow':14,
+    'Africa/Cairo':5,'Africa/Tunis':18,'Africa/Algiers':19,'Africa/Casablanca':21,'Europe/Lisbon':22,
+    'Asia/Baghdad':5,'Asia/Damascus':5,'Asia/Beirut':5,'Africa/Khartoum':5,'Africa/Tripoli':5
+  };
+  if(exact[tz]) return exact[tz];
+  if(/^(America|US|Canada)\//.test(tz)) return 2;
+  return 3;
+}
+
+function defaultState(){
+  return {
+    onboarded:false,
+    profile:{ role:null, purpose:null },
+    settings:{ blockMode:true, fadePast:true, remindersOn:true, showCountdown:true, calcMethod:guessMethod(), asrSchool:0, latRule:0, hideTimesNotice:false, darkMode:false, adjustments:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0} },
+    location:{ lat:51.5074, lng:-0.1278, label:'London (default)', isDefault:true },
+    days:{},
+    recurringTasks:[],
+    todoList:[],
+    scratchpad:'',
+    scratchDrawing:'',
+    peakScore:0,
+    laterCollapsed:false
+  };
+}
+let state = loadState();
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', state.settings.darkMode ? 'dark' : 'light');
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if(!meta){ meta = document.createElement('meta'); meta.name='theme-color'; document.head.appendChild(meta); }
+  meta.content = state.settings.darkMode ? '#171713' : '#FAF8F3';
+}
+applyTheme();
+let p1Choice=null, p2Choice=null;
+let viewDate = new Date();
+let timingsCache = {};
+let hijriCache = {};
+let openAddForm = null;
+let editingTaskId = null;
+let addTimeMode = 'none';
+let taskDraft = null;   // what's typed in the open task form, so re-renders never wipe it
+let todoDraft = null;
+let progressWeekOffset = 0;
+let todoAddOpen = false;
+let todoEditingId = null;
+let dividerRenamingId = null;
+let brainMode = 'type';
+let brainPreview = null;   // tasks waiting for the user to check before they go on the list
+let drawCtx = null;
+let currentColor = '#2B2B26';
+
+function loadState(){
+  try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    const merged = Object.assign(defaultState(), parsed);
+    merged.settings = Object.assign(defaultState().settings, parsed.settings||{});
+    if(!merged.recurringTasks) merged.recurringTasks = [];
+    if(!merged.todoList) merged.todoList = [];
+    if(typeof merged.scratchpad !== 'string') merged.scratchpad = '';
+    if(typeof merged.scratchDrawing !== 'string') merged.scratchDrawing = '';
+    if(typeof merged.peakScore !== 'number') merged.peakScore = 0;
+    if(typeof merged.laterCollapsed !== 'boolean') merged.laterCollapsed = false;
+    return merged;
+  }catch(e){ return defaultState(); }
+}
+let saveWarned = false;
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){
+    // Private browsing, full storage or blocked site data: keep working, but tell the user once.
+    if(saveWarned) return; saveWarned = true;
+    const w = document.createElement('div'); w.className='save-warn'; w.setAttribute('role','alert');
+    w.textContent = 'Waqt can\'t save on this device right now, so changes may be lost when you close the app. Free up storage or leave private browsing.';
+    w.onclick = ()=>w.remove();
+    document.body.appendChild(w);
+  }
+}
+function dateKeyFromDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayKey(){ return dateKeyFromDate(new Date()); }
+function keyOffset(offsetDays){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return dateKeyFromDate(d); }
+function viewKey(){ return dateKeyFromDate(viewDate); }
+// ---- repeating tasks on chosen weekdays (0 = Sunday ... 6 = Saturday, like Date.getDay) ----
+const WEEK_ORDER = [1,2,3,4,5,6,0];
+const WEEK_SHORT = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
+const WEEK_LETTER = {0:'S',1:'M',2:'T',3:'W',4:'T',5:'F',6:'S'};
+function templateOn(rt, key){
+  if(!Array.isArray(rt.days) || rt.days.length===0 || rt.days.length===7) return true;
+  return rt.days.includes(parseKey(key).getDay());
+}
+function describeDays(days){
+  if(!Array.isArray(days) || days.length===0 || days.length===7) return 'every day';
+  const set = new Set(days);
+  if(days.length===5 && [1,2,3,4,5].every(d=>set.has(d))) return 'on weekdays';
+  if(days.length===2 && set.has(0) && set.has(6)) return 'at weekends';
+  return 'on ' + WEEK_ORDER.filter(d=>set.has(d)).map(d=>WEEK_SHORT[d]).join(', ');
+}
+// Bring days that already exist (today onwards) in line with a repeating task's weekdays.
+function syncTemplateFuture(rt){
+  const today = todayKey();
+  Object.keys(state.days).forEach(k=>{
+    if(k < today) return;
+    const day = state.days[k];
+    const has = day.tasks.some(t=>t.templateId===rt.id);
+    if(templateOn(rt,k)){
+      if(!has) day.tasks.push({id:Date.now()+Math.floor(Math.random()*100000), block:rt.block, text:rt.text, minutes:rt.minutes||null, startTime:rt.startTime||null, done:false, recurring:true, templateId:rt.id});
+    } else {
+      day.tasks = day.tasks.filter(t=>!(t.templateId===rt.id && !t.done));
+    }
+  });
+}
+function dayChips(selected, onToggle){
+  const row = document.createElement('div'); row.className='day-chips';
+  const set = new Set(selected);
+  WEEK_ORDER.forEach(d=>{
+    const b = document.createElement('button'); b.type='button'; b.className='day-chip'+(set.has(d)?' on':'');
+    b.textContent = WEEK_LETTER[d]; b.title = WEEK_SHORT[d]; b.setAttribute('aria-label', WEEK_SHORT[d]); b.setAttribute('aria-pressed', set.has(d)?'true':'false');
+    b.onclick = ()=>onToggle(d);
+    row.appendChild(b);
+  });
+  return row;
+}
+
+function ensureDay(key){
+  if(!state.days[key]){
+    const tasks = state.recurringTasks.filter(rt=>templateOn(rt,key)).map((rt,i)=>({
+      id: Date.now()+i, block: rt.block, text: rt.text,
+      minutes: rt.minutes||null, startTime: rt.startTime||null,
+      done:false, recurring:true, templateId: rt.id
+    }));
+    state.days[key] = { prayers:{fajr:false,dhuhr:false,asr:false,maghrib:false,isha:false}, tasks };
+  }
+  return state.days[key];
+}
+
+const P1 = [{id:'student',label:'Student'},{id:'working',label:'Working full-time'},{id:'shift',label:'Shift work / irregular hours'},{id:'other',label:'Something else'}];
+const P2 = [{id:'consistency',label:'Not missing prayers'},{id:'balance',label:'Balancing study/work with prayer times'},{id:'habits',label:'Building better daily habits overall'},{id:'tracking',label:'Just tracking my progress over time'}];
+
+function renderOptions(containerId, list, onPick){
+  const el = document.getElementById(containerId); el.innerHTML='';
+  list.forEach(item=>{
+    const btn = document.createElement('button'); btn.className='option'; btn.textContent=item.label;
+    btn.onclick = ()=>{ [...el.children].forEach(c=>c.classList.remove('selected')); btn.classList.add('selected'); onPick(item.id); };
+    el.appendChild(btn);
+  });
+}
+renderOptions('p1-options', P1, (id)=>{ p1Choice=id; });
+renderOptions('p2-options', P2, (id)=>{ p2Choice=id; });
+
+function goTo(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+function finishOnboarding(){
+  state.profile.role = p1Choice || 'other';
+  state.profile.purpose = p2Choice || 'consistency';
+  state.onboarded = true; saveState();
+  requestLocationThenLaunch();
+}
+function requestLocationThenLaunch(){
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,label:'Your location',isDefault:false}; saveState(); launchApp(); },
+      ()=>{ launchApp(); }, {timeout:4000}
+    );
+  } else launchApp();
+}
+function refreshLocation(statusEl){
+  if(!navigator.geolocation){ statusEl.textContent='Location isn\'t available on this device/browser.'; return; }
+  statusEl.textContent = 'Requesting location…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      state.location = {lat:pos.coords.latitude, lng:pos.coords.longitude, label:'Your location', isDefault:false};
+      saveState(); timingsCache = {};
+      Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{
+        statusEl.textContent = 'Location updated — prayer times refreshed.';
+        renderToday(); renderSettings();
+      });
+    },
+    ()=>{ statusEl.textContent = 'Permission denied — check your browser/phone location settings for this page.'; },
+    {timeout:8000, enableHighAccuracy:true}
+  );
+}
+let timesNoticeShown = false;
+function showTimesNotice(){
+  if(timesNoticeShown || state.settings.hideTimesNotice || document.getElementById('times-notice')) return;
+  timesNoticeShown = true;
+  const overlay = document.createElement('div'); overlay.id='times-notice'; overlay.className='brain-overlay active'; overlay.style.zIndex='1300';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
+  overlay.innerHTML = `<div class="notice-card">
+    <div class="notice-title">About your prayer times</div>
+    <div class="notice-body">
+      <p>Waqt calculates prayer times for your location, so they can differ by a few minutes from your local masjid.</p>
+      <p>You can change the calculation method, Asr setting and adjust each prayer's time anytime in <strong>Settings</strong>.</p>
+    </div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="tn-ok">Got it</button>
+      <button type="button" class="btn btn-ghost" id="tn-settings">Open Settings</button>
+      <button type="button" class="notice-link" id="tn-never">Do not show again</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close = ()=>overlay.remove();
+  overlay.querySelector('#tn-ok').onclick = close;
+  overlay.querySelector('#tn-settings').onclick = ()=>{ close(); switchTab('settings'); };
+  overlay.querySelector('#tn-never').onclick = ()=>{ state.settings.hideTimesNotice = true; saveState(); renderSettings(); close(); };
+}
+let lastSeenDay = null;
+// If the app stays open (or in the background) past midnight, move "Today" on to the new day.
+function checkNewDay(){
+  const now = todayKey();
+  if(lastSeenDay && lastSeenDay !== now){
+    const wasViewingToday = viewKey() === lastSeenDay;
+    lastSeenDay = now;
+    if(wasViewingToday) jumpToday();
+    if(document.getElementById('tab-progress').style.display!=='none') renderProgress();
+  }
+  lastSeenDay = now;
+}
+function launchApp(){
+  goTo('app');
+  lastSeenDay = todayKey();
+  if(typeof state.celebratedLevel !== 'number'){ const sc = currentScore(); state.celebratedLevel = levelInfo(sc).level; state.celebratedBoxes = BOX_MILESTONES.filter(m=>m<=sc).pop()||0; saveState(); }
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkNewDay(); });
+  showTimesNotice();
+  showTip('today');
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{
+    renderToday(); renderSettings();
+  });
+  setInterval(()=>{ checkNewDay(); if(document.getElementById('tab-today').style.display!=='none' && openAddForm===null) renderToday(); }, 60000);
+  setInterval(updateCountdownDisplay, 1000);
+}
+function tomorrowOf(d){ const nd = new Date(d); nd.setDate(nd.getDate()+1); return nd; }
+
+let sourceUsed = {};   // dateKey -> 'calc'
+// Source 1: Aladhan (calculated, no key). Also supplies the Hijri date.
+// ---- On-device prayer time calculation (no internet needed) ----
+// Standard solar-position maths (NOAA / Meeus style). Each method is just its twilight angles.
+const CALC_PARAMS = {
+  3:{fajr:18, isha:17},                 // Muslim World League
+  15:{fajr:18, isha:18, moonsighting:true}, // Moonsighting Committee
+  2:{fajr:15, isha:15},                 // ISNA
+  5:{fajr:19.5, isha:17.5},             // Egyptian
+  1:{fajr:18, isha:18},                 // Karachi
+  4:{fajr:18.5, ishaMin:90},            // Umm al-Qura
+  8:{fajr:19.5, ishaMin:90},            // Gulf
+  9:{fajr:18, isha:17.5},               // Kuwait
+  10:{fajr:18, ishaMin:90},             // Qatar
+  16:{fajr:18.2, isha:18.2},            // Dubai
+  13:{fajr:18, isha:17},                // Diyanet
+  12:{fajr:12, isha:12},                // France UOIF
+  14:{fajr:16, isha:15},                // Russia
+  17:{fajr:20, isha:18},                // JAKIM
+  11:{fajr:20, isha:18},                // Singapore
+  20:{fajr:20, isha:18},                // Kemenag
+  7:{fajr:17.7, isha:14, maghribAngle:4.5}, // Tehran
+  18:{fajr:18, isha:18},                // Tunisia
+  19:{fajr:18, isha:17},                // Algeria
+  21:{fajr:19, isha:17},                // Morocco
+  22:{fajr:18, ishaMin:77},             // Portugal
+  23:{fajr:18, isha:18}                 // Jordan
+};
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+function sunPos(jd){
+  const d = jd - 2451545.0;
+  const g = (357.529 + 0.98560028*d) % 360;
+  const q = (280.459 + 0.98564736*d) % 360;
+  const L = (q + 1.915*Math.sin(g*D2R) + 0.020*Math.sin(2*g*D2R)) % 360;
+  const e = 23.439 - 0.00000036*d;
+  let RA = Math.atan2(Math.cos(e*D2R)*Math.sin(L*D2R), Math.cos(L*D2R))*R2D/15;
+  RA = ((RA % 24) + 24) % 24;
+  let eqt = q/15 - RA; eqt = eqt - 24*Math.round(eqt/24);
+  const decl = Math.asin(Math.sin(e*D2R)*Math.sin(L*D2R))*R2D;
+  return {decl, eqt};
+}
+function julian(y,m,d){ if(m<=2){ y-=1; m+=12; } const A=Math.floor(y/100), B=2-A+Math.floor(A/4); return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+B-1524.5; }
+// hours (UTC) at which the sun is `angle` degrees below the horizon, before (ccw) or after noon
+function hourAngleTime(jd, lat, lng, angle, after, t0){
+  const {decl, eqt} = sunPos(jd + t0/24);
+  const noon = 12 - lng/15 - eqt;
+  const c = (-Math.sin(angle*D2R) - Math.sin(decl*D2R)*Math.sin(lat*D2R)) / (Math.cos(decl*D2R)*Math.cos(lat*D2R));
+  if(c<-1 || c>1) return NaN;                 // sun never gets that low (high-latitude summer)
+  const h = Math.acos(c)*R2D/15;
+  return noon + (after ? h : -h);
+}
+function refine(fn, t0){ let t = fn(t0); if(!isNaN(t)) t = fn(t); return t; }
+function calcPrayerTimes(y, m, d, lat, lng, method, school, latRule){
+  const P = CALC_PARAMS[method] || CALC_PARAMS[3];
+  const jd = julian(y, m, d) - lng/(15*24);
+  const at = (angle, after, guess)=> refine(t=>hourAngleTime(jd, lat, lng, angle, after, t), guess);
+  const noonT = (()=>{ let t=12; for(let i=0;i<2;i++){ const {eqt}=sunPos(jd+t/24); t = 12 - lng/15 - eqt; } return t; })();
+  const sunrise = at(0.833, false, 6), sunset = at(0.833, true, 18);
+  const asrT = (()=>{ const f = school?2:1; let t=15; for(let i=0;i<2;i++){ const {decl,eqt}=sunPos(jd+t/24);
+      const alt = Math.atan(1/(f + Math.tan(Math.abs(lat-decl)*D2R)))*R2D;     // sun altitude when shadow = f x height (+ noon shadow)
+      const c = (Math.sin(alt*D2R) - Math.sin(decl*D2R)*Math.sin(lat*D2R))/(Math.cos(decl*D2R)*Math.cos(lat*D2R));
+      t = 12 - lng/15 - eqt + Math.acos(c)*R2D/15; } return t; })();
+  let fajr = at(P.fajr, false, 5);
+  let maghrib = P.maghribAngle ? at(P.maghribAngle, true, 18) : sunset;
+  let isha = P.ishaMin ? maghrib + P.ishaMin/60 : at(P.isha, true, 19);
+  // night length from sunset to next sunrise
+  const night = (sunrise + 24) - sunset;
+  if(P.moonsighting){
+    const dayOfYear = Math.round((Date.UTC(y,m-1,d) - Date.UTC(y,0,1))/86400000)+1;
+    const leap = (y%4===0 && y%100!==0) || y%400===0, days = leap?366:365;
+    let dyy;
+    if(lat>=0){ dyy = dayOfYear + 10; if(dyy>=days) dyy -= days; }
+    else { dyy = dayOfYear - (leap?173:172); if(dyy<0) dyy += days; }
+    const A = Math.abs(lat);
+    const season = (a,b,c,dd)=>{
+      if(dyy<91) return a+(b-a)/91*dyy;
+      if(dyy<137) return b+(c-b)/46*(dyy-91);
+      if(dyy<183) return c+(dd-c)/46*(dyy-137);
+      if(dyy<229) return dd+(c-dd)/46*(dyy-183);
+      if(dyy<275) return c+(b-c)/46*(dyy-229);
+      return b+(a-b)/91*(dyy-275);
+    };
+    if(A>=55){ fajr = sunrise - night/7; isha = sunset + night/7; }
+    else {
+      const morning = season(75+28.65/55*A, 75+19.44/55*A, 75+32.74/55*A, 75+48.10/55*A);
+      const safeFajr = sunrise - Math.round(morning)/60;
+      if(isNaN(fajr) || safeFajr > fajr) fajr = safeFajr;
+      const evening = season(75+25.60/55*A, 75+2.050/55*A, 75-9.21/55*A, 75+6.14/55*A);   // general shafaq
+      const safeIsha = sunset + Math.round(evening)/60;
+      if(isNaN(isha) || safeIsha < isha) isha = safeIsha;
+    }
+  } else {
+    // high-latitude fallback: never let Fajr/Isha drift further from sunrise/sunset than a fixed share of the night
+    const rule = latRule || 3;
+    const portion = (angle)=> rule===1 ? night/2 : rule===2 ? night/7 : (angle/60)*night;
+    const fp = portion(P.fajr);
+    if(isNaN(fajr) || (sunrise - fajr) > fp) fajr = sunrise - fp;
+    if(!P.ishaMin){ const ip = portion(P.isha); if(isNaN(isha) || (isha - sunset) > ip) isha = sunset + ip; }
+  }
+  const adj = P.adj || {};
+  // UTC hours -> local "HH:MM" using this device's offset on that date (handles BST/GMT)
+  const offsetH = -new Date(y, m-1, d, 12).getTimezoneOffset()/60;
+  const fmt = (t, extraMin)=>{ let mins = Math.round((t + offsetH)*60 + (extraMin||0)); mins = ((mins % 1440)+1440)%1440; return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); };
+  return { fajr:fmt(fajr), sunrise:fmt(sunrise), dhuhr:fmt(noonT, adj.dhuhr), asr:fmt(asrT), maghrib:fmt(maghrib, adj.maghrib), isha:fmt(isha) };
+}
+
+// Times for one date with a specific method / Asr school, calculated on the phone.
+async function fetchRawTimes(dateObj, method, school){
+  const {lat,lng} = state.location;
+  const t = calcPrayerTimes(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate(), lat, lng, method, school?1:0, state.settings.latRule||0);
+  return {fajr:t.fajr, dhuhr:t.dhuhr, asr:t.asr, maghrib:t.maghrib, isha:t.isha};
+}
+// widely used methods, most common first (on a tie the earlier one wins)
+const CALIBRATE_METHODS = [3,15,1,2,5,4,8,9,10,16,13,12,14,23,19,21,18,22];
+// Given the times the user's masjid shows today, find the closest method + Asr school and the leftover offsets.
+async function findBestMatch(entered, dateObj, onProgress){
+  const school = state.settings.asrSchool?1:0;
+  const ok = [];
+  // one at a time with a short gap, so the prayer times service doesn't block us
+  for(let i=0;i<CALIBRATE_METHODS.length;i++){
+    const m = CALIBRATE_METHODS[i];
+    if(onProgress) onProgress(i+1, CALIBRATE_METHODS.length);
+    try{ ok.push({m, t: await fetchRawTimes(dateObj, m, school)}); }catch(e){}
+  }
+  if(!ok.length) throw new Error('offline');
+  const err = (t,p)=> entered[p] ? Math.abs(minutesBetween(t[p], entered[p])) : 0;
+  ok.forEach(r=>{ r.score = err(r.t,'fajr') + err(r.t,'isha'); });
+  ok.sort((a,b)=>a.score-b.score);
+  const best = ok[0];
+  // Asr: check whether the other school is closer
+  let bestSchool = school, asrTimes = best.t;
+  if(entered.asr){
+    try{
+      const other = await fetchRawTimes(dateObj, best.m, school?0:1);
+      if(Math.abs(minutesBetween(other.asr, entered.asr)) < Math.abs(minutesBetween(best.t.asr, entered.asr))){ bestSchool = school?0:1; asrTimes = other; }
+    }catch(e){}
+  }
+  const raw = Object.assign({}, best.t, {asr: asrTimes.asr});
+  const adjustments = {};
+  PRAYER_ORDER.forEach(p=>{ adjustments[p] = entered[p] ? minutesBetween(raw[p], entered[p]) : 0; });
+  return { method: best.m, school: bestSchool, adjustments, score: best.score };
+}
+function openMatchMasjid(){
+  if(document.getElementById('match-masjid')) return;
+  const today = new Date();
+  const shown = getAdjustedTimings(todayKey()) || {};
+  const o = document.createElement('div'); o.id='match-masjid'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card">
+    <div class="notice-title">Match my masjid</div>
+    <div class="notice-body"><p>Enter <strong>today's</strong> times from your masjid's timetable (or the app you trust). Leave any you don't know blank.</p></div>
+    <div class="mm-grid">${PRAYER_ORDER.map(p=>`<label>${PRAYER_LABEL[p]}<input type="time" class="timefield" data-p="${p}" value="${shown[p]||''}"></label>`).join('')}</div>
+    <div class="slot-hint" id="mm-status" style="margin-top:10px;"></div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="mm-go">Find the best match</button>
+      <button type="button" class="notice-link" id="mm-cancel">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(o);
+  const close = ()=>o.remove();
+  o.querySelector('#mm-cancel').onclick = close;
+  o.addEventListener('click', e=>{ if(e.target===o) close(); });
+  o.querySelector('#mm-go').onclick = async ()=>{
+    const entered = {};
+    o.querySelectorAll('input[data-p]').forEach(i=>{ if(i.value) entered[i.dataset.p] = i.value; });
+    const status = o.querySelector('#mm-status');
+    if(!entered.fajr && !entered.isha){ status.textContent = 'Enter at least Fajr or Isha — those are the times that differ most between methods.'; return; }
+    status.textContent = 'Comparing calculation methods…';
+    const goBtn = o.querySelector('#mm-go'); goBtn.disabled = true;
+    let r;
+    try{
+      r = await findBestMatch(entered, today, (i,n)=>{ status.textContent = `Comparing calculation methods… ${i} of ${n}`; });
+    }catch(e){
+      goBtn.disabled = false;
+      status.textContent = 'Something went wrong comparing methods. Please try again.';
+      return;
+    }
+    try{
+      state.settings.calcMethod = r.method; state.settings.asrSchool = r.school; state.settings.adjustments = r.adjustments;
+      saveState(); timingsCache = {}; sourceUsed = {};
+      await Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]);
+      renderToday(); renderSettings();
+      const mName = (METHODS.find(m=>m.v===r.method)||{}).label || 'Method '+r.method;
+      const offs = PRAYER_ORDER.filter(p=>r.adjustments[p]).map(p=>`${PRAYER_LABEL[p]} ${r.adjustments[p]>0?'+':''}${r.adjustments[p]}`).join(', ');
+      o.querySelector('.notice-card').innerHTML = `<div class="notice-title">Matched</div>
+        <div class="notice-body"><p>Closest method: <strong>${escapeHtml(mName)}</strong>${r.school?' with Hanafi Asr':''}.</p>
+        <p>${offs ? 'Small adjustments: '+escapeHtml(offs)+' min.' : 'No extra adjustments needed.'}</p>
+        <p style="color:var(--ink-soft);font-size:12.5px;">Mosque timetables shift through the year a little differently from any formula, so check again once a month or after the clocks change.</p></div>
+        <div class="notice-actions"><button type="button" class="btn" id="mm-done">Done</button></div>`;
+      o.querySelector('#mm-done').onclick = close;
+    }catch(e){
+      goBtn.disabled = false;
+      status.textContent = 'Something went wrong applying the match ('+(e && e.message ? e.message : 'unknown error')+'). Please try again.';
+    }
+  };
+}
+function hijriFor(dateObj){
+  try{
+    const txt = new Intl.DateTimeFormat('en-GB-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(dateObj);
+    return txt.replace(/\s*AH$/,'');
+  }catch(e){ return ''; }
+}
+async function loadPrayerTimesFor(dateObj){
+  const key = dateKeyFromDate(dateObj);
+  if(timingsCache[key]) return timingsCache[key];
+  const {lat,lng} = state.location;
+  const t = calcPrayerTimes(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate(), lat, lng, state.settings.calcMethod, state.settings.asrSchool?1:0, state.settings.latRule||0);
+  timingsCache[key] = {fajr:t.fajr, dhuhr:t.dhuhr, asr:t.asr, maghrib:t.maghrib, isha:t.isha};
+  const h = hijriFor(dateObj); if(h) hijriCache[key] = h;
+  sourceUsed[key] = 'calc';
+  return timingsCache[key];
+}
+function shiftTime(hhmm, deltaMin){
+  if(!deltaMin) return hhmm;
+  const [h,m] = hhmm.split(':').map(Number);
+  const d = new Date(2000,0,1,h,m,0);
+  d.setMinutes(d.getMinutes()+deltaMin);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function getAdjustedTimings(key){
+  const raw = timingsCache[key]; if(!raw) return null;
+  const adj = state.settings.adjustments || {};
+  const out = {};
+  PRAYER_ORDER.forEach(p=>{ out[p] = shiftTime(raw[p], adj[p]||0); });
+  return out;
+}
+function parseTimeOn(dateObj, hhmm){
+  const [h,m] = hhmm.split(':').map(Number);
+  const d = new Date(dateObj); d.setHours(h,m,0,0); return d;
+}
+
+// ---- first-use tips: one short card per tab, shown once ----
+const TIPS = {
+  today: { title:'Your day, between prayers', lines:[
+    'Your day is split into blocks after each prayer. Tap the circle to tick a prayer.',
+    'Tap "+ add task" inside any block. Give it a duration or a time slot, and tick "Repeat" for things like lectures or the gym.',
+    'Drag the ⋮⋮ handle to move a task, even into a different prayer block.',
+    'Tap the date at the top to jump to any day.'] },
+  todo: { title:'A list that isn’t tied to a day', lines:[
+    'Add things you need to do at some point.',
+    'Use "+ divider" to set things aside for later. Tap a divider to fold it, or ✎ to rename it.',
+    'Head full? Open the brain dump, write freely, and turn it into list items.'] },
+  progress: { title:'Every tick counts', lines:[
+    'Each prayer, task and to-do you tick is one box. Boxes take you up levels.',
+    'Use the arrows to compare any week with the one before.'] },
+  settings: { title:'Make the times match your masjid', lines:[
+    'Pick your calculation method and Asr, or use "Match my masjid" to set them from your mosque’s timetable.',
+    'Back up your data now and then. It lives on this device.'] }
+};
+function showTip(tab){
+  const old = document.getElementById('tip-card'); if(old) old.remove();
+  const tip = TIPS[tab];
+  if(!tip) return;
+  if(!state.seenTips) state.seenTips = {};
+  if(state.seenTips[tab]) return;
+  const card = document.createElement('div'); card.id='tip-card'; card.className='tip-card'; card.setAttribute('role','status');
+  card.innerHTML = `<div class="tip-title">${tip.title}</div><ul>${tip.lines.map(l=>`<li>${escapeHtml(l)}</li>`).join('')}</ul><button type="button" class="btn btn-sm" id="tip-ok">Got it</button>`;
+  card.querySelector('#tip-ok').onclick = ()=>{ state.seenTips[tab] = true; saveState(); card.remove(); };
+  document.body.appendChild(card);
+}
+function switchTab(tab){
+  ['today','todo','progress','settings'].forEach(t=>{ document.getElementById('tab-'+t).style.display = (t===tab)?'block':'none'; });
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  const titles = {today:'Today', todo:'To-Do', progress:'Progress', settings:'Settings'};
+  document.getElementById('app-title').textContent = titles[tab];
+  if(tab==='today') renderToday();
+  if(tab==='todo') renderTodo();
+  if(tab==='progress'){ progressWeekOffset = 0; renderProgress(); }
+  if(tab==='settings') renderSettings();
+  showTip(tab);
+}
+
+function shiftDay(delta){
+  viewDate.setDate(viewDate.getDate()+delta);
+  openAddForm = null; editingTaskId = null;
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+}
+function jumpToday(){
+  viewDate = new Date(); openAddForm=null; editingTaskId=null;
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+}
+
+function relativeLabel(){
+  const k = viewKey();
+  if(k===todayKey()) return 'Today';
+  if(k===keyOffset(-1)) return 'Yesterday';
+  if(k===keyOffset(1)) return 'Tomorrow';
+  return viewDate.toLocaleDateString('en-GB',{weekday:'long'});
+}
+
+function renderToday(){
+  const key = viewKey();
+  const day = ensureDay(key);
+  const t = getAdjustedTimings(key);
+  const now = new Date();
+  const isToday = key === todayKey();
+  const container = document.getElementById('tab-today');
+  container.innerHTML = '';
+
+  const nav = document.createElement('div'); nav.className='date-nav';
+  nav.innerHTML = `
+    <button class="arrow" onclick="shiftDay(-1)">&#8592;</button>
+    <button type="button" class="label-wrap" id="date-label" aria-label="Choose a date"><div class="rel">${relativeLabel()} <span class="caret">&#9662;</span></div><div class="sub">${viewDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}${hijriCache[key]?' · '+hijriCache[key]:''}</div></button>
+    <button class="arrow" onclick="shiftDay(1)">&#8594;</button>
+  `;
+  container.appendChild(nav);
+  nav.querySelector('#date-label').onclick = openDatePicker;
+  if(!isToday){
+    const jb = document.createElement('button'); jb.className='btn btn-ghost btn-sm jump-today';
+    jb.textContent='Jump to today'; jb.onclick=jumpToday;
+    container.appendChild(jb);
+  }
+
+  if(isToday && state.settings.showCountdown){
+    const cd = document.createElement('div'); cd.className='countdown'; cd.id='countdown-el';
+    container.appendChild(cd);
+    updateCountdownDisplay();
+  }
+
+  const blockWrap = document.createElement('div'); blockWrap.className='block-wrap';
+
+  PRAYER_ORDER.forEach((pid, idx)=>{
+    const time = t[pid];
+    const done = day.prayers[pid];
+
+    const row = document.createElement('div'); row.className='prayer-row';
+    row.innerHTML = `<div class="check ${done?'done':''}">${done?'&#10003;':''}</div><div class="name">${PRAYER_LABEL[pid]}</div><div class="time">${to12h(time)}</div>`;
+    row.querySelector('.check').onclick = ()=>{ day.prayers[pid]=!day.prayers[pid]; saveState(); renderToday(); if(day.prayers[pid]) celebrateIfNew(); };
+    blockWrap.appendChild(row);
+
+    if(state.settings.blockMode){
+      const nextIdx=(idx+1)%PRAYER_ORDER.length; const isLast = idx===PRAYER_ORDER.length-1;
+      const blockPast = isToday && !isLast && now > parseTimeOn(viewDate, t[PRAYER_ORDER[nextIdx]]);
+      const block = document.createElement('div'); block.className='block'+((state.settings.fadePast && blockPast)?' past':''); block.dataset.pid = pid;
+      const blockTasks = day.tasks.filter(tk=>tk.block===pid);
+      const blockMins = blockTasks.reduce((sum,tk)=>sum+(tk.minutes||0),0);
+      if(blockMins>0){
+        const totalTag = document.createElement('div');
+        totalTag.style.cssText='font-size:11px;color:var(--ink-soft);margin-bottom:6px;';
+        totalTag.textContent = `${formatMinutes(blockMins)} planned`;
+        block.appendChild(totalTag);
+      }
+      blockTasks.forEach((tk,i)=>{
+        block.appendChild(renderTaskRow(tk, day, pid, i===0, i===blockTasks.length-1));
+      });
+      renderAddTaskUI(block, pid, day);
+      blockWrap.appendChild(block);
+    }
+  });
+
+  if(!state.settings.blockMode){
+    const listWrap = document.createElement('div'); listWrap.style.marginTop='16px';
+    const flatTasks = day.tasks.filter(tk=>tk.block==='none');
+    flatTasks.forEach((tk,i)=>{
+      listWrap.appendChild(renderTaskRow(tk, day, 'none', i===0, i===flatTasks.length-1));
+    });
+    renderAddTaskUI(listWrap, 'none', day);
+    blockWrap.appendChild(listWrap);
+  }
+
+  container.appendChild(blockWrap);
+
+  const stats = document.createElement('div'); stats.className='stat-row';
+  const prayedCount = PRAYER_ORDER.filter(p=>day.prayers[p]).length;
+  stats.innerHTML = `<div class="stat-card"><div class="num">${prayedCount}/5</div><div class="lbl">prayed</div></div>
+    <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>`;
+  container.appendChild(stats);
+
+  const mNote = document.createElement('div'); mNote.className='sub'; mNote.style.cssText='text-align:center;padding:2px 24px 14px;font-size:11px;';
+  const mName = ((METHODS.find(m=>m.v===state.settings.calcMethod)||{}).label)||'calculated';
+  mNote.textContent = `Times calculated (${mName}${state.settings.asrSchool?', Hanafi Asr':''}). Check with your local masjid.`;
+  container.appendChild(mNote);
+
+  if(isToday) renderBanner(container, day, t, now);
+  focusOpenInput();
+}
+
+function renderTaskRow(tk, day, blockId, isFirst, isLast){
+  const el = document.createElement('div'); el.className='task'+(tk.done?' done':'');
+  el.dataset.id = tk.id;
+  el.innerHTML = `<div class="tcheck"></div><span class="tlabel">${escapeHtml(tk.text)}</span>
+    <span class="tmeta">
+      ${tk.recurring?'<span class="trecur">&#8635;</span>':''}
+      ${taskTimeBadge(tk)}
+      <button class="ticon tedit" title="Edit">&#9998;</button>
+      <button class="ticon tdelete" title="Delete">&#10005;</button>
+      <button class="ticon drag-handle" title="Drag to reorder">${GRIP_SVG}</button>
+    </span>`;
+  el.querySelector('.tcheck').onclick=()=>{ tk.done=!tk.done; saveState(); renderToday(); if(tk.done) celebrateIfNew(); };
+  el.querySelector('.tdelete').onclick=()=>{ deleteTask(day, tk.id); };
+  el.querySelector('.tedit').onclick=()=>{ startEditTask(blockId, tk); };
+  if(state.settings.blockMode){
+    enableCrossBlockDrag(el.querySelector('.drag-handle'), el, tk, day);
+  } else {
+    enableDragReorder(el.querySelector('.drag-handle'), el, (targetIndex)=>{
+      reorderWithinGroup(day.tasks, x=>x.block===blockId, tk.id, targetIndex);
+      saveState(); renderToday();
+    });
+  }
+  return el;
+}
+
+const GRIP_SVG = '<svg width="13" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="4" r="1.6"/><circle cx="10" cy="4" r="1.6"/><circle cx="4" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="4" cy="16" r="1.6"/><circle cx="10" cy="16" r="1.6"/></svg>';
+
+
+// Move a task to any prayer block (or reorder inside its own block). `index` is the position among
+// the target block's other tasks.
+function moveTaskTo(day, tk, pid, index){
+  const oldBlock = tk.block;
+  const oldIndex = day.tasks.filter(x=>x.block===oldBlock).findIndex(x=>x.id===tk.id);
+  if(pid===oldBlock && index===oldIndex) return false;
+  day.tasks = day.tasks.filter(x=>x.id!==tk.id);
+  const group = day.tasks.filter(x=>x.block===pid);
+  tk.block = pid;
+  if(group.length===0) day.tasks.push(tk);
+  else if(index>=group.length) day.tasks.splice(day.tasks.indexOf(group[group.length-1])+1, 0, tk);
+  else day.tasks.splice(day.tasks.indexOf(group[index]), 0, tk);
+  return true;
+}
+function scrollParentOf(el){
+  let p = el.parentElement;
+  while(p && p!==document.body){
+    const oy = getComputedStyle(p).overflowY;
+    if((oy==='auto'||oy==='scroll') && p.scrollHeight>p.clientHeight) return p;
+    p = p.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+// Drag a task by its handle into ANY prayer block on Today. Highlights where it will land.
+function enableCrossBlockDrag(handleEl, rowEl, tk, day){
+  handleEl.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    const scroller = scrollParentOf(rowEl);
+    const startY = e.clientY, startScroll = scroller.scrollTop;
+    let lastY = e.clientY, target = null, raf = 0;
+    rowEl.classList.add('dragging');
+    try{ handleEl.setPointerCapture(e.pointerId); }catch(err){}
+    const clearMarks = ()=>document.querySelectorAll('#tab-today .drop-block, #tab-today .drop-before, #tab-today .drop-end').forEach(n=>n.classList.remove('drop-block','drop-before','drop-end'));
+
+    function update(){
+      rowEl.style.transform = `translateY(${lastY - startY + (scroller.scrollTop - startScroll)}px)`;
+      const blocks = Array.from(document.querySelectorAll('#tab-today .block'));
+      let best = null, bestDist = Infinity;
+      blocks.forEach(b=>{
+        const r = b.getBoundingClientRect();
+        const d = lastY < r.top ? r.top - lastY : (lastY > r.bottom ? lastY - r.bottom : 0);
+        if(d < bestDist){ bestDist = d; best = b; }
+      });
+      if(!best) return;
+      const rows = Array.from(best.querySelectorAll(':scope > .task')).filter(r=>r!==rowEl);
+      let index = 0;
+      rows.forEach(r=>{ const rc = r.getBoundingClientRect(); if(rc.top + rc.height/2 < lastY) index++; });
+      clearMarks();
+      best.classList.add('drop-block');
+      if(index < rows.length) rows[index].classList.add('drop-before'); else best.classList.add('drop-end');
+      target = { pid: best.dataset.pid, index };
+    }
+    function loop(){
+      // keep the page moving when the finger is near the top or bottom edge
+      const h = window.innerHeight;
+      if(lastY < 90) scroller.scrollTop -= 10; else if(lastY > h - 130) scroller.scrollTop += 10;
+      update();
+      raf = requestAnimationFrame(loop);
+    }
+    function onMove(ev){ lastY = ev.clientY; }
+    function onUp(){
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      cancelAnimationFrame(raf);
+      update();
+      clearMarks();
+      rowEl.classList.remove('dragging'); rowEl.style.transform='';
+      if(target && moveTaskTo(day, tk, target.pid, target.index)){ saveState(); renderToday(); }
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+    raf = requestAnimationFrame(loop);
+  });
+}
+
+// ---------- Date picker ----------
+function openDatePicker(){
+  if(document.getElementById('date-picker')) return;
+  let shown = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const overlay = document.createElement('div'); overlay.id='date-picker'; overlay.className='brain-overlay active'; overlay.style.zIndex='1250';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true');
+  const close = ()=>{ overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e)=>{ if(e.key==='Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+  function goTo(y,m,d){
+    close();
+    viewDate = new Date(y,m,d,12,0,0); openAddForm=null; editingTaskId=null;
+    Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+  }
+  function draw(){
+    const y = shown.getFullYear(), m = shown.getMonth();
+    const first = new Date(y,m,1), lead = (first.getDay()+6)%7, count = new Date(y,m+1,0).getDate();
+    const selKey = viewKey(), tKey = todayKey();
+    const card = document.createElement('div'); card.className='cal-card';
+    card.innerHTML = `<div class="cal-head">
+        <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&#8592;</button>
+        <div class="cal-title">${first.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</div>
+        <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">&#8594;</button>
+      </div>
+      <div class="cal-grid">${['M','T','W','T','F','S','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}</div>
+      <div class="cal-foot"><button type="button" class="btn btn-ghost btn-sm" id="cal-today">Today</button><button type="button" class="btn btn-ghost btn-sm" id="cal-close">Close</button></div>`;
+    const grid = card.querySelector('.cal-grid');
+    for(let i=0;i<lead;i++) grid.appendChild(document.createElement('div'));
+    for(let d=1; d<=count; d++){
+      const k = dateKeyFromDate(new Date(y,m,d));
+      const dd = state.days[k];
+      const has = dd && (PRAYER_ORDER.some(p=>dd.prayers[p]) || dd.tasks.length>0);
+      const b = document.createElement('button'); b.type='button';
+      b.className = 'cal-day'+(k===tKey?' today':'')+(k===selKey?' sel':'')+(has?' has':'');
+      b.textContent = d; b.setAttribute('aria-label', new Date(y,m,d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+      b.onclick = ()=>goTo(y,m,d);
+      grid.appendChild(b);
+    }
+    card.querySelector('#cal-prev').onclick = ()=>{ shown = new Date(y,m-1,1); draw(); };
+    card.querySelector('#cal-next').onclick = ()=>{ shown = new Date(y,m+1,1); draw(); };
+    card.querySelector('#cal-today').onclick = ()=>{ const n=new Date(); goTo(n.getFullYear(),n.getMonth(),n.getDate()); };
+    card.querySelector('#cal-close').onclick = close;
+    overlay.innerHTML=''; overlay.appendChild(card);
+  }
+  draw();
+  document.body.appendChild(overlay);
+}
+
+function reorderWithinGroup(fullArray, groupFilterFn, itemId, newIndexInGroup){
+  const group = fullArray.filter(groupFilterFn);
+  const oldIndex = group.findIndex(x=>x.id===itemId);
+  if(oldIndex===-1 || oldIndex===newIndexInGroup) return false;
+  const [item] = group.splice(oldIndex,1);
+  group.splice(newIndexInGroup,0,item);
+  let gi=0;
+  for(let i=0;i<fullArray.length;i++){
+    if(groupFilterFn(fullArray[i])){ fullArray[i] = group[gi++]; }
+  }
+  return true;
+}
+
+// Generic touch/mouse drag-to-reorder for a list of sibling .task elements.
+// Measures original positions once at drag start, then only uses CSS transforms
+// (no live DOM reordering) until drop, so it stays robust across devices.
+function enableDragReorder(handleEl, rowEl, onFinish){
+  handleEl.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    const container = rowEl.parentElement;
+    const siblings = Array.from(container.querySelectorAll(':scope > .task'));
+    const startIndex = siblings.indexOf(rowEl);
+    if(startIndex===-1) return;
+    const originals = siblings.map(el=>{ const r = el.getBoundingClientRect(); return { el, top:r.top, height:r.height }; });
+    const draggedHeight = originals[startIndex].height;
+    const startY = e.clientY;
+    let targetIndex = startIndex;
+
+    rowEl.classList.add('dragging');
+    try{ handleEl.setPointerCapture(e.pointerId); }catch(err){}
+
+    function onMove(ev){
+      const dy = ev.clientY - startY;
+      rowEl.style.transform = `translateY(${dy}px)`;
+      const draggedCenter = originals[startIndex].top + draggedHeight/2 + dy;
+      let count = 0;
+      originals.forEach((o,j)=>{ if(j!==startIndex && (o.top+o.height/2) < draggedCenter) count++; });
+      targetIndex = count;
+      originals.forEach((o,j)=>{
+        if(j===startIndex) return;
+        if(targetIndex > startIndex && j>startIndex && j<=targetIndex){ o.el.style.transform = `translateY(${-draggedHeight}px)`; }
+        else if(targetIndex < startIndex && j>=targetIndex && j<startIndex){ o.el.style.transform = `translateY(${draggedHeight}px)`; }
+        else { o.el.style.transform = ''; }
+      });
+    }
+    function onUp(){
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      rowEl.classList.remove('dragging');
+      originals.forEach(o=>{ o.el.style.transform=''; });
+      if(targetIndex !== startIndex) onFinish(targetIndex);
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+}
+
+function startEditTask(blockId, tk){
+  openAddForm = blockId;
+  editingTaskId = tk.id;
+  addTimeMode = tk.startTime ? 'start' : (tk.minutes ? 'duration' : 'none');
+  renderToday();
+}
+
+function renderAddTaskUI(parent, blockId, day){
+  if(openAddForm === blockId){
+    const editingTask = editingTaskId ? day.tasks.find(t=>t.id===editingTaskId) : null;
+    const form = document.createElement('div'); form.className='add-task-form';
+
+    // Draft survives re-renders (mode switches, the 1-minute refresh, ticking a prayer...)
+    const draftKey = blockId+'|'+(editingTaskId||'new');
+    if(!taskDraft || taskDraft.key!==draftKey){
+      taskDraft = { key:draftKey, text: editingTask?editingTask.text:'', minutes: editingTask&&editingTask.minutes?editingTask.minutes:'', start: editingTask&&editingTask.startTime?editingTask.startTime:'', repeat:false };
+    }
+    const D = taskDraft;
+
+    const row1 = document.createElement('div'); row1.className='row1';
+    row1.innerHTML = `<input type="text" id="taskinput" placeholder="Task name" value="${escapeHtml(D.text)}">`;
+    row1.querySelector('input').addEventListener('input', e=>{ D.text = e.target.value; });
+    form.appendChild(row1);
+
+    const modeToggle = document.createElement('div'); modeToggle.className='mode-toggle';
+    modeToggle.innerHTML = `
+      <button type="button" data-mode="none" class="${addTimeMode==='none'?'active':''}">No time</button>
+      <button type="button" data-mode="duration" class="${addTimeMode==='duration'?'active':''}">Duration</button>
+      <button type="button" data-mode="start" class="${addTimeMode==='start'?'active':''}">Time slot</button>
+    `;
+    modeToggle.querySelectorAll('button').forEach(b=>{
+      b.onclick = ()=>{ addTimeMode = b.dataset.mode; renderToday(); };
+    });
+    form.appendChild(modeToggle);
+
+    const chips = (wrapEl)=>{
+      const c = document.createElement('div'); c.className='dur-chips';
+      [15,30,45,60,90,120].forEach(m=>{
+        const b = document.createElement('button'); b.type='button'; b.textContent = formatMinutes(m);
+        b.className = 'dur-chip'+(Number(D.minutes)===m?' active':'');
+        b.onclick = ()=>{ D.minutes = m; renderToday(); };
+        c.appendChild(b);
+      });
+      wrapEl.appendChild(c);
+    };
+
+    if(addTimeMode==='duration'){
+      const row2 = document.createElement('div'); row2.className='row2 slot-wrap';
+      row2.innerHTML = `<div class="slot-hint">How long, at any time in this block</div>`;
+      chips(row2);
+      const own = document.createElement('div'); own.className='slot-row';
+      own.innerHTML = `<label>Minutes<input type="number" id="taskminutes" class="timefield" placeholder="e.g. 25" min="1" step="5" value="${D.minutes||''}"></label>`;
+      own.querySelector('input').addEventListener('input', e=>{ D.minutes = e.target.value; });
+      row2.appendChild(own);
+      form.appendChild(row2);
+    } else if(addTimeMode==='start'){
+      const row2 = document.createElement('div'); row2.className='row2 slot-wrap';
+      const endVal = (D.start && Number(D.minutes)>0) ? addMinutesHHMM(D.start, Number(D.minutes)) : '';
+      row2.innerHTML = `<div class="slot-row">
+          <label>Start<input type="time" id="taskstart" class="timefield" value="${D.start||''}"></label>
+          <label>End<input type="time" id="taskend" class="timefield" value="${endVal}"></label>
+        </div>
+        <div class="slot-hint">${D.start && Number(D.minutes)>0 ? `${to12h(D.start)} – ${to12h(endVal)} · ${formatMinutes(Number(D.minutes))}` : 'Pick a start, then a length or an end time'}</div>`;
+      chips(row2);
+      const st = row2.querySelector('#taskstart'), en = row2.querySelector('#taskend');
+      st.addEventListener('input', ()=>{ D.start = st.value; });
+      st.addEventListener('change', ()=>{ D.start = st.value; renderToday(); });
+      en.addEventListener('change', ()=>{
+        if(!en.value){ D.minutes=''; renderToday(); return; }
+        if(!D.start){ return; }
+        let diff = minutesBetween(D.start, en.value);
+        if(diff<=0) diff += 24*60;     // ends after midnight
+        D.minutes = diff; renderToday();
+      });
+      form.appendChild(row2);
+    }
+
+    if(!editingTask){
+      const repeatRow = document.createElement('label'); repeatRow.className='repeat-row';
+      repeatRow.innerHTML = `<input type="checkbox" id="taskrepeat" ${D.repeat?'checked':''}> Repeat`;
+      repeatRow.querySelector('input').addEventListener('change', e=>{ D.repeat = e.target.checked; renderToday(); });
+      form.appendChild(repeatRow);
+      if(D.repeat){
+        if(!Array.isArray(D.days)) D.days = [0,1,2,3,4,5,6];
+        const rw = document.createElement('div'); rw.className='repeat-days';
+        rw.appendChild(dayChips(D.days, d=>{ D.days = D.days.includes(d) ? D.days.filter(x=>x!==d) : D.days.concat(d); renderToday(); }));
+        const presets = document.createElement('div'); presets.className='day-presets';
+        [['Every day',[0,1,2,3,4,5,6]],['Weekdays',[1,2,3,4,5]],['Weekends',[0,6]]].forEach(([lbl,ds])=>{
+          const p = document.createElement('button'); p.type='button'; p.className='dur-chip'; p.textContent=lbl; p.onclick=()=>{ D.days = ds.slice(); renderToday(); }; presets.appendChild(p);
+        });
+        rw.appendChild(presets);
+        const hint = document.createElement('div'); hint.className='slot-hint';
+        hint.textContent = D.days.length ? `Repeats ${describeDays(D.days)}` : 'Pick at least one day';
+        rw.appendChild(hint);
+        form.appendChild(rw);
+      }
+    }
+
+    const actions = document.createElement('div'); actions.className='actions';
+    const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='cancel'; cancelBtn.textContent='Cancel';
+    const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.className='confirm'; saveBtn.textContent = editingTask ? 'Save changes' : 'Add task';
+    cancelBtn.onclick = ()=>{ openAddForm=null; editingTaskId=null; addTimeMode='none'; taskDraft=null; renderToday(); };
+
+    const confirm = ()=>{
+      const input = document.getElementById('taskinput');
+      const val = input.value.trim();
+      if(!val) return;
+      let minutes=null, startTime=null;
+      if(addTimeMode==='duration'){
+        const mins = parseInt(D.minutes,10);
+        if(mins>0) minutes = mins;
+      } else if(addTimeMode==='start'){
+        const stEl = document.getElementById('taskstart');
+        const st = (stEl && stEl.value) || D.start;
+        if(st) startTime = st;
+        const mins = parseInt(D.minutes,10);
+        if(mins>0) minutes = mins;
+      }
+      if(editingTask){
+        editingTask.text = val; editingTask.minutes = minutes; editingTask.startTime = startTime;
+      } else {
+        const task = {id:Date.now(), block:blockId, text:val, minutes, startTime, done:false};
+        const repeatChk = document.getElementById('taskrepeat');
+        let addToday = true;
+        if(repeatChk && repeatChk.checked && (D.days||[]).length>0){
+          const days = (D.days.length===7) ? undefined : WEEK_ORDER.filter(d=>D.days.includes(d));
+          const template = {id:Date.now()+1, block:blockId, text:val, minutes, startTime};
+          if(days) template.days = days;
+          state.recurringTasks.push(template);
+          task.recurring = true; task.templateId = template.id;
+          addToday = templateOn(template, viewKey());
+          if(addToday) day.tasks.push(task);
+          syncTemplateFuture(template);
+          if(!addToday) setTimeout(()=>showInfoToast(`Added — repeats ${describeDays(days)}`), 0);
+        } else {
+          day.tasks.push(task);
+        }
+      }
+      openAddForm=null; editingTaskId=null; addTimeMode='none'; taskDraft=null;
+      saveState(); renderToday();
+    };
+    saveBtn.onclick = confirm;
+    actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+    form.appendChild(actions);
+
+    form.querySelectorAll('input[type=text],input[type=number],input[type=time]').forEach(inp=>{
+      inp.onkeydown = (e)=>{ if(e.key==='Enter') confirm(); if(e.key==='Escape') cancelBtn.onclick(); };
+    });
+    parent.appendChild(form);
+  } else {
+    const btn = document.createElement('button'); btn.className='add-task'; btn.textContent='+ add task';
+    btn.onclick = ()=>{ openAddForm=blockId; editingTaskId=null; addTimeMode='none'; renderToday(); };
+    parent.appendChild(btn);
+  }
+}
+
+let undoTimer = null;
+let pendingUndo = null;
+function ensureUndoToast(){
+  if(document.getElementById('undo-toast')) return;
+  const t = document.createElement('div'); t.id='undo-toast'; t.className='undo-toast';
+  t.innerHTML = `<span id="undo-msg"></span><button type="button" id="undo-btn">Undo</button>`;
+  document.body.appendChild(t);
+  document.getElementById('undo-btn').onclick = ()=>{
+    if(pendingUndo) pendingUndo();
+    hideUndoToast();
+  };
+}
+function showInfoToast(message){
+  let t = document.getElementById('info-toast');
+  if(!t){ t = document.createElement('div'); t.id='info-toast'; t.className='undo-toast'; t.setAttribute('role','status'); document.body.appendChild(t); }
+  t.textContent = message; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+function showUndoToast(message, undoFn){
+  ensureUndoToast();
+  clearTimeout(undoTimer);
+  pendingUndo = undoFn;
+  document.getElementById('undo-msg').textContent = message;
+  document.getElementById('undo-toast').classList.add('show');
+  undoTimer = setTimeout(hideUndoToast, 5000);
+}
+function hideUndoToast(){
+  const t = document.getElementById('undo-toast');
+  if(t) t.classList.remove('show');
+  pendingUndo = null;
+}
+
+function deleteTask(day, taskId){
+  const idx = day.tasks.findIndex(tk=>tk.id===taskId);
+  if(idx===-1) return;
+  const removed = day.tasks[idx];
+  day.tasks.splice(idx,1);
+  saveState(); renderToday();
+  showUndoToast('Task deleted', ()=>{
+    day.tasks.splice(idx,0,removed);
+    saveState(); renderToday();
+  });
+}
+
+function addMinutesHHMM(hhmm, mins){
+  const [h,m] = hhmm.split(':').map(Number); const t = ((h*60+m+mins)%1440+1440)%1440;
+  return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+}
+function minutesBetween(a,b){ const [h1,m1]=a.split(':').map(Number), [h2,m2]=b.split(':').map(Number); return (h2*60+m2)-(h1*60+m1); }
+function taskTimeBadge(tk){
+  if(tk.startTime && tk.minutes) return `<span class="ttime">${to12h(tk.startTime)}–${to12h(addMinutesHHMM(tk.startTime, tk.minutes))}</span>`;
+  if(tk.startTime) return `<span class="ttime">${to12h(tk.startTime)}</span>`;
+  if(tk.minutes) return `<span class="ttime">${formatMinutes(tk.minutes)}</span>`;
+  return '';
+}
+function focusOpenInput(){
+  if(openAddForm!==null){ const el=document.getElementById('taskinput'); if(el){ el.focus(); } }
+}
+
+function getNextPrayerInfo(){
+  const key = viewKey();
+  const t = getAdjustedTimings(key);
+  if(!t) return null;
+  const now = new Date();
+  for(const p of PRAYER_ORDER){
+    const pt = parseTimeOn(viewDate, t[p]);
+    if(pt > now) return {label:PRAYER_LABEL[p], target:pt};
+  }
+  const tmrKey = dateKeyFromDate(tomorrowOf(viewDate));
+  const tmr = getAdjustedTimings(tmrKey);
+  if(tmr) return {label:'Fajr', target: parseTimeOn(tomorrowOf(viewDate), tmr.fajr)};
+  return null;
+}
+function formatCountdown(ms){
+  if(ms<0) ms=0;
+  const totalSec = Math.floor(ms/1000);
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  const pad=(n)=>String(n).padStart(2,'0');
+  return h>0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+function updateCountdownDisplay(){
+  const el = document.getElementById('countdown-el');
+  if(!el || !state.settings.showCountdown) return;
+  const info = getNextPrayerInfo();
+  if(!info){ el.textContent=''; return; }
+  const diff = info.target - new Date();
+  if(diff<=0){ renderToday(); return; }
+  el.textContent = `${info.label} in ${formatCountdown(diff)}`;
+}
+
+function renderBanner(container, day, t, now){
+  if(!state.settings.remindersOn) return;
+  const unmarked = PRAYER_ORDER.filter(p=> !day.prayers[p] && now > new Date(parseTimeOn(viewDate,t[p]).getTime()+20*60000));
+  if(unmarked.length===0) return;
+  const banner = document.createElement('div'); banner.className='banner';
+  banner.innerHTML = `Have you prayed ${unmarked.map(p=>PRAYER_LABEL[p]).join(', ')}? Tick it off so you don't lose track.`;
+  const insertAfter = container.querySelector('.countdown') || container.querySelector('.date-nav');
+  insertAfter.insertAdjacentElement('afterend', banner);
+}
+
+function formatMinutes(m){
+  if(m < 60) return m+'m';
+  const h = Math.floor(m/60), r = m%60;
+  return r===0 ? h+'h' : h+'h '+r+'m';
+}
+function to12h(hhmm){ const [h,m]=hhmm.split(':').map(Number); const period=h>=12?'pm':'am'; const h12=((h%12)||12); return `${h12}:${String(m).padStart(2,'0')}${period}`; }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function parseKey(key){ const [y,m,d]=key.split('-').map(Number); return new Date(y,m-1,d); }
+
+// One "box" = a prayer ticked, a day task done, or a to-do item done.
+function dayScore(key){
+  const day = state.days[key];
+  let n = 0;
+  if(day){
+    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length;
+    n += day.tasks.filter(t=>t.done).length;
+  }
+  n += state.todoList.filter(t=>t.type!=='divider' && t.done && t.doneAt===key).length;
+  return n;
+}
+function lifetimeScore(){
+  let n = 0;
+  Object.keys(state.days).forEach(k=>{
+    const day = state.days[k];
+    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length + day.tasks.filter(t=>t.done).length;
+  });
+  n += state.todoList.filter(t=>t.type!=='divider' && t.done).length;
+  return n;
+}
+// Levels are driven by the highest total ever reached, so deleting an old ticked item never drops you a level.
+function currentScore(){
+  const live = lifetimeScore();
+  if(live > (state.peakScore||0)){ state.peakScore = live; saveState(); }
+  return state.peakScore||0;
+}
+const LEVEL_TITLES = ['Beginning','Steady','Consistent','Focused','Disciplined','Resolute','Steadfast',
+  'Devoted','Diligent','Committed','Unwavering','Grounded','Persevering','Dependable','Rooted',
+  'Enduring','Anchored','Tireless','Unshakeable','Lifelong'];
+const BOX_MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000];
+// Celebrate a new level (or a big box count) once, the moment it's reached.
+function celebrateIfNew(){
+  const score = currentScore();
+  const lv = levelInfo(score);
+  if(typeof state.celebratedLevel !== 'number'){ state.celebratedLevel = lv.level; }
+  if(typeof state.celebratedBoxes !== 'number'){ state.celebratedBoxes = BOX_MILESTONES.filter(m=>m<=score).pop()||0; }
+  const box = BOX_MILESTONES.filter(m=>m<=score).pop()||0;
+  let msg = null;
+  if(lv.level > state.celebratedLevel){
+    msg = { big: String(lv.level), title: `Level ${lv.level} · ${lv.title}`, sub: `${score} boxes ticked so far. ${lv.span} more to Level ${lv.level+1}.` };
+  } else if(box > state.celebratedBoxes){
+    msg = { big: box.toLocaleString('en-GB'), title: `${box.toLocaleString('en-GB')} boxes ticked`, sub: 'Every one of them a small step. Keep going.' };
+  }
+  state.celebratedLevel = Math.max(state.celebratedLevel, lv.level);
+  state.celebratedBoxes = Math.max(state.celebratedBoxes, box);
+  saveState();
+  if(msg) showCelebration(msg);
+}
+function showCelebration(msg){
+  if(document.getElementById('celebrate')) return;
+  const o = document.createElement('div'); o.id='celebrate'; o.className='brain-overlay active'; o.style.zIndex='1350';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="cel-card">
+    <div class="cel-badge">${escapeHtml(msg.big)}</div>
+    <div class="cel-title">${escapeHtml(msg.title)}</div>
+    <div class="cel-sub">${escapeHtml(msg.sub)}</div>
+    <button type="button" class="btn" id="cel-ok">Alhamdulillah</button>
+  </div>`;
+  document.body.appendChild(o);
+  const close = ()=>{ o.remove(); };
+  o.querySelector('#cel-ok').onclick = close;
+  o.addEventListener('click', e=>{ if(e.target===o) close(); });
+}
+function levelThreshold(L){ return 25*L*(L-1)/2; }
+function levelInfo(score){
+  let L = 1;
+  while(levelThreshold(L+1) <= score) L++;
+  const base = levelThreshold(L), next = levelThreshold(L+1);
+  return { level:L, title:LEVEL_TITLES[Math.min(L,LEVEL_TITLES.length)-1], base, next, into:score-base, span:next-base };
+}
+
+function mondayOf(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay()+6)%7));
+  return x;
+}
+function weekKeys(offset){
+  const m = mondayOf(new Date());
+  m.setDate(m.getDate() - 7*offset);
+  return Array.from({length:7}, (_,i)=>{ const d = new Date(m); d.setDate(m.getDate()+i); return dateKeyFromDate(d); });
+}
+function weekTotal(offset){ return weekKeys(offset).reduce((a,k)=>a+dayScore(k),0); }
+function weekLabel(offset){
+  if(offset===0) return 'This week';
+  if(offset===1) return 'Last week';
+  return 'Week of ' + parseKey(weekKeys(offset)[0]).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function computeStreak(){
+  let streak=0, d=new Date();
+  const today = state.days[dateKeyFromDate(d)];
+  // today doesn't break the streak just because it isn't finished yet
+  if(!(today && PRAYER_ORDER.every(p=>today.prayers[p]))) d.setDate(d.getDate()-1);
+  while(true){
+    const day = state.days[dateKeyFromDate(d)];
+    if(day && PRAYER_ORDER.every(p=>day.prayers[p])){ streak++; d.setDate(d.getDate()-1); } else break;
+  }
+  return streak;
+}
+
+function windowStats(keys, cutoff){
+  const s = { prayers:0, perPrayer:{}, planned:0, done:0, tasksPlanned:0, tasksDone:0, days:cutoff+1 };
+  PRAYER_ORDER.forEach(p=>s.perPrayer[p]=0);
+  keys.slice(0,cutoff+1).forEach(k=>{
+    const day = state.days[k];
+    if(!day) return;
+    PRAYER_ORDER.forEach(p=>{ if(day.prayers[p]){ s.prayers++; s.perPrayer[p]++; } });
+    s.tasksPlanned += day.tasks.length;
+    s.tasksDone += day.tasks.filter(t=>t.done).length;
+  });
+  s.planned = 5*s.days + s.tasksPlanned;
+  s.done = s.prayers + s.tasksDone;
+  return s;
+}
+function fmtShort(key){ return parseKey(key).toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+
+function renderProgress(){
+  const container = document.getElementById('tab-progress');
+  const score = currentScore();
+  const lv = levelInfo(score);
+  const pct = Math.max(2, Math.round(lv.into/lv.span*100));
+
+  // --- week vs week ---
+  const A = progressWeekOffset, B = progressWeekOffset+1;
+  const keysA = weekKeys(A), keysB = weekKeys(B);
+  const todayIdx = (new Date().getDay()+6)%7;
+  const cutoff = A===0 ? todayIdx : 6;                 // current week is compared "so far", not against a full week
+  const valsA = keysA.map(k=>dayScore(k)), valsB = keysB.map(k=>dayScore(k));
+  const sumA = valsA.slice(0,cutoff+1).reduce((a,b)=>a+b,0);
+  const sumB = valsB.slice(0,cutoff+1).reduce((a,b)=>a+b,0);
+  const diff = sumA - sumB;
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const sameWindow = A===0 ? `${dayNames[0]}–${dayNames[cutoff]}` : 'the full week';
+  let summary;
+  if(sumA===0 && sumB===0) summary = 'Nothing ticked in either week yet.';
+  else if(diff>0) summary = `<strong>${diff} more</strong> than ${weekLabel(B).toLowerCase()} over the same days (${sameWindow}).`;
+  else if(diff<0) summary = `<strong>${Math.abs(diff)} fewer</strong> than ${weekLabel(B).toLowerCase()} over the same days (${sameWindow}).`;
+  else summary = `Exactly level with ${weekLabel(B).toLowerCase()} over the same days (${sameWindow}).`;
+
+  // ring: prayers + day tasks ticked out of what was on the plate so far
+  const st = windowStats(keysA, cutoff);
+  const ringPct = st.planned ? Math.round(st.done/st.planned*100) : 0;
+  const R = 42, CIRC = 2*Math.PI*R;
+  const ringHtml = `<svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="${R}" class="ring-bg"/>
+      <circle cx="50" cy="50" r="${R}" class="ring-fg" stroke-dasharray="${(CIRC*ringPct/100).toFixed(1)} ${CIRC.toFixed(1)}" transform="rotate(-90 50 50)"/>
+      <text x="50" y="56" text-anchor="middle" class="ring-text">${ringPct}%</text>
+    </svg>`;
+
+  // two-bar comparison
+  const maxAB = Math.max(1, sumA, sumB);
+  const bar2 = (v, cls, label)=>`<div class="cmp-col">
+      <div class="cmp-val">${v}</div>
+      <div class="cmp-bar ${cls}" style="height:${v ? Math.max(6, v/maxAB*100) : 0}%"></div>
+      <div class="cmp-name">${label}</div>
+    </div>`;
+
+  // horizontal bars
+  const hbar = (label, val, max, text)=>`<div class="hb-row">
+      <div class="hb-label">${label}</div>
+      <div class="hb-track"><div class="hb-fill" style="width:${max ? Math.round(val/max*100) : 0}%"></div></div>
+      <div class="hb-val">${text}</div>
+    </div>`;
+  const prayerBars = PRAYER_ORDER.map(p=>hbar(PRAYER_LABEL[p], st.perPrayer[p], st.days, `${st.perPrayer[p]}/${st.days}`)).join('')
+    + hbar('Tasks', st.tasksDone, st.tasksPlanned, `${st.tasksDone}/${st.tasksPlanned}`);
+
+  const maxDay = Math.max(1, ...valsA, ...valsB);
+  const colsHtml = dayNames.map((n,i)=>{
+    const hA = valsA[i] ? Math.max(4, valsA[i]/maxDay*100) : 0;
+    const hB = valsB[i] ? Math.max(4, valsB[i]/maxDay*100) : 0;
+    const isToday = A===0 && i===todayIdx;
+    const future = A===0 && i>todayIdx;
+    return `<div class="wk-col${future?' future':''}">
+      <div class="wk-bars">
+        <div class="wk-bar prev" style="height:${hB}%">${valsB[i]?`<span>${valsB[i]}</span>`:''}</div>
+        <div class="wk-bar cur" style="height:${hA}%">${valsA[i]?`<span>${valsA[i]}</span>`:''}</div>
+      </div>
+      <div class="wk-day${isToday?' today':''}">${n[0]}</div>
+    </div>`;
+  }).join('');
+
+  // --- last 8 weeks ---
+  const totals = []; for(let o=7;o>=0;o--) totals.push({o, v:weekTotal(o), mon:parseKey(weekKeys(o)[0])});
+  const maxWeek = Math.max(1, ...totals.map(t=>t.v));
+  const trendHtml = totals.map(t=>{
+    const h = t.v ? Math.max(4, t.v/maxWeek*100) : 0;
+    return `<div class="wk-col">
+      <div class="wk-bars single"><div class="wk-bar ${t.o===0?'cur':'hist'}" style="height:${h}%">${t.v?`<span>${t.v}</span>`:''}</div></div>
+      <div class="wk-day${t.o===0?' today':''}">${t.mon.getDate()}/${t.mon.getMonth()+1}</div>
+    </div>`;
+  }).join('');
+
+  let best = 0; for(let o=0;o<52;o++) best = Math.max(best, weekTotal(o));
+  const prayersThisWeek = weekKeys(0).reduce((a,k)=>{ const d=state.days[k]; return a + (d?PRAYER_ORDER.filter(p=>d.prayers[p]).length:0); },0);
+
+  container.innerHTML = `
+  <div class="prog-wrap">
+    <div class="pcard level-card">
+      <div class="lv-top">
+        <div class="lv-num">${lv.level}</div>
+        <div><div class="lv-label">Level ${lv.level}</div><div class="lv-title">${lv.title}</div></div>
+      </div>
+      <div class="lv-bar"><div class="lv-fill" style="width:${pct}%"></div></div>
+      <div class="lv-sub">${lv.into} / ${lv.span} boxes to Level ${lv.level+1} · ${score} ticked in total</div>
+    </div>
+
+    <div class="pcard panel">
+      <div class="pnav">
+        <button type="button" class="pnav-btn" id="wk-prev" aria-label="Earlier week">&#8592;</button>
+        <div class="pnav-main">${weekLabel(A)} vs ${weekLabel(B).toLowerCase()}</div>
+        <button type="button" class="pnav-btn" id="wk-next" aria-label="Later week" ${A===0?'disabled':''}>&#8594;</button>
+      </div>
+      <div class="date-range">
+        <div><div class="dr-lbl">Start date</div><div class="dr-val">${fmtShort(keysA[0])}</div></div>
+        <div><div class="dr-lbl">End date</div><div class="dr-val">${fmtShort(keysA[6])}</div></div>
+      </div>
+
+      <div class="psec ring-sec">
+        ${ringHtml}
+        <div class="ring-cap"><strong>${st.done}/${st.planned}</strong> ticked<div class="sub">${A===0?'prayers and tasks so far':'prayers and tasks'}</div></div>
+      </div>
+
+      <div class="psec">
+        <div class="psec-title">${weekLabel(A)} vs ${weekLabel(B).toLowerCase()}</div>
+        <div class="cmp">${bar2(sumA,'cur',weekLabel(A))}${bar2(sumB,'prev',weekLabel(B))}</div>
+        <div class="wk-summary">${summary}</div>
+      </div>
+
+      <div class="psec">
+        <div class="psec-title">Prayers and tasks</div>
+        ${prayerBars}
+      </div>
+
+      <div class="psec">
+        <div class="psec-title">Day by day</div>
+        <div class="wk-legend"><span class="lg cur"></span>${weekLabel(A)} <span class="lg prev"></span>${weekLabel(B)}</div>
+        <div class="wk-chart">${colsHtml}</div>
+      </div>
+    </div>
+
+    <div class="stat-row" style="padding:0;margin:0 0 14px;">
+      <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>
+      <div class="stat-card"><div class="num">${prayersThisWeek}/35</div><div class="lbl">prayers this week</div></div>
+      <div class="stat-card"><div class="num">${best}</div><div class="lbl">best week</div></div>
+    </div>
+
+    <div class="pcard">
+      <div class="pcard-title">Boxes ticked per week</div>
+      <div class="wk-chart">${trendHtml}</div>
+      <div class="wk-foot">Week commencing (Mon). Counts prayers, day tasks and to-do items.</div>
+    </div>
+  </div>`;
+
+  document.getElementById('wk-prev').onclick = ()=>{ progressWeekOffset++; renderProgress(); };
+  const nextBtn = document.getElementById('wk-next');
+  nextBtn.onclick = ()=>{ if(progressWeekOffset>0){ progressWeekOffset--; renderProgress(); } };
+}
+
+function renderSettings(){
+  const container = document.getElementById('tab-settings'); container.innerHTML='';
+  const wrap = document.createElement('div'); wrap.style.padding='4px 20px';
+
+  wrap.appendChild(settingRow('Split day by prayer times','Group tasks into blocks between prayers instead of a flat list', state.settings.blockMode, v=>{state.settings.blockMode=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Fade past blocks','Dim blocks whose prayer window has already passed', state.settings.fadePast, v=>{state.settings.fadePast=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Prayer reminders','Show a gentle nudge if a prayer hasn\'t been ticked off', state.settings.remindersOn, v=>{state.settings.remindersOn=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Next prayer countdown','Show a live countdown to the next prayer on Today', state.settings.showCountdown, v=>{state.settings.showCountdown=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Dark mode','Easier on the eyes before Fajr or after Isha', state.settings.darkMode, v=>{state.settings.darkMode=v; saveState(); applyTheme();}));
+  wrap.appendChild(settingRow('Show tips again','Bring back the short guide on each tab', false, v=>{ if(v){ state.seenTips = {}; saveState(); showInfoToast('Tips will show again on each tab'); setTimeout(renderSettings, 300); } }));
+  wrap.appendChild(settingRow('Prayer times notice','Show a reminder about prayer time accuracy each time the app opens', !state.settings.hideTimesNotice, v=>{state.settings.hideTimesNotice=!v; saveState();}));
+
+  const stRepeat = document.createElement('div'); stRepeat.className='section-title'; stRepeat.style.cssText='padding:0;margin-top:22px;'; stRepeat.textContent='Repeating tasks';
+  wrap.appendChild(stRepeat);
+  const recurWrap = document.createElement('div');
+  if(state.recurringTasks.length===0){
+    recurWrap.innerHTML = '<div class="empty" style="padding:12px 0;">None yet — tick "Repeat" when adding a task.</div>';
+  } else {
+    state.recurringTasks.forEach(rt=>{
+      const item = document.createElement('div'); item.className='recur-item';
+      const blockLabel = rt.block==='none' ? '' : ' · after '+PRAYER_LABEL[rt.block];
+      item.innerHTML = `<div style="flex:1;min-width:0;"><div class="rlabel">${escapeHtml(rt.text)}</div><div class="rsub">Repeats ${describeDays(rt.days)}${blockLabel}</div></div><button class="ticon tdelete" title="Stop repeating">&#10005;</button>`;
+      const cur = Array.isArray(rt.days) && rt.days.length ? rt.days : [0,1,2,3,4,5,6];
+      const chipsEl = dayChips(cur, d=>{
+        let next = cur.includes(d) ? cur.filter(x=>x!==d) : cur.concat(d);
+        if(next.length===0) return;          // keep at least one day; use ✕ to stop repeating
+        if(next.length===7) delete rt.days; else rt.days = WEEK_ORDER.filter(x=>next.includes(x));
+        syncTemplateFuture(rt); saveState(); renderSettings(); renderToday();
+      });
+      chipsEl.classList.add('small');
+      item.querySelector('div').appendChild(chipsEl);
+      item.querySelector('.tdelete').onclick = ()=>{
+        state.recurringTasks = state.recurringTasks.filter(x=>x.id!==rt.id);
+        Object.keys(state.days).forEach(k=>{
+          state.days[k].tasks = state.days[k].tasks.filter(tk=>tk.templateId!==rt.id);
+        });
+        saveState(); renderSettings(); renderToday();
+      };
+      recurWrap.appendChild(item);
+    });
+  }
+  wrap.appendChild(recurWrap);
+
+  const stLoc = document.createElement('div'); stLoc.className='section-title'; stLoc.style.cssText='padding:0;margin-top:22px;'; stLoc.textContent='Location & calculation';
+  wrap.appendChild(stLoc);
+  const locWrap = document.createElement('div');
+  const isDefault = state.location.isDefault !== false && (state.location.label||'').includes('default');
+  const locLabel = isDefault
+    ? 'Using default London coordinates — not your real location'
+    : `Using your location (${state.location.lat.toFixed(2)}, ${state.location.lng.toFixed(2)})`;
+  const locStatus = document.createElement('div'); locStatus.className='status-line'; locStatus.style.marginTop='0';
+  locStatus.textContent = locLabel;
+  locWrap.appendChild(locStatus);
+
+  const locBtn = document.createElement('button'); locBtn.className='btn btn-ghost btn-sm'; locBtn.style.marginTop='8px';
+  locBtn.textContent = isDefault ? 'Turn on location' : 'Update my location';
+  const locResult = document.createElement('div'); locResult.className='status-line';
+  locBtn.onclick = ()=>{ refreshLocation(locResult); };
+  locWrap.appendChild(locBtn);
+  locWrap.appendChild(locResult);
+
+  const selStyle = 'width:100%;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);';
+  const reloadTimes = ()=>{ timingsCache = {}; sourceUsed = {}; return Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); }); };
+  const methodLabel = document.createElement('div'); methodLabel.className='sub'; methodLabel.style.margin='14px 0 6px';
+  methodLabel.textContent = 'Calculation method';
+  locWrap.appendChild(methodLabel);
+  const methodSelect = document.createElement('select');
+  methodSelect.style.cssText = 'width:100%;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);';
+  const methods = METHODS;
+  methods.forEach(m=>{
+    const opt = document.createElement('option'); opt.value=m.v; opt.textContent=m.label;
+    if(state.settings.calcMethod===m.v) opt.selected=true;
+    methodSelect.appendChild(opt);
+  });
+  methodSelect.onchange = ()=>{
+    state.settings.calcMethod = parseInt(methodSelect.value,10);
+    saveState(); timingsCache = {};
+    Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); });
+  };
+  locWrap.appendChild(methodSelect);
+  const reloadAll = ()=>{ saveState(); timingsCache = {}; sourceUsed = {}; Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); }); };
+  const mkSelect = (label, opts, cur, onPick)=>{
+    const l = document.createElement('div'); l.className='sub'; l.style.margin='14px 0 6px'; l.textContent = label; locWrap.appendChild(l);
+    const sel = document.createElement('select'); sel.style.cssText = 'width:100%;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);';
+    opts.forEach(([v,t])=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; if(String(cur)===String(v)) o.selected=true; sel.appendChild(o); });
+    sel.onchange = ()=>onPick(parseInt(sel.value,10));
+    locWrap.appendChild(sel);
+  };
+  mkSelect('Asr calculation', [[0,'Standard (Shafi\'i, Maliki, Hanbali)'],[1,'Hanafi (later Asr)']], state.settings.asrSchool?1:0, v=>{ state.settings.asrSchool=v; reloadAll(); });
+  mkSelect('Far-north / far-south locations', [[0,'Automatic'],[1,'Middle of the night'],[2,'One-seventh of the night'],[3,'Angle-based']], state.settings.latRule||0, v=>{ state.settings.latRule=v; reloadAll(); });
+  const calcNote = document.createElement('div'); calcNote.className='sub'; calcNote.style.marginTop='10px';
+  calcNote.textContent = 'Times are calculated on your phone, so they work offline. They can differ by a few minutes from your local masjid — use Match my masjid or the adjustments below.';
+  locWrap.appendChild(calcNote);
+  wrap.appendChild(locWrap);
+
+  const adjLabel = document.createElement('div'); adjLabel.className='sub'; adjLabel.style.margin='18px 0 6px';
+  adjLabel.textContent = 'Adjust prayer times (match your local masjid)';
+  wrap.appendChild(adjLabel);
+  const adjWrap = document.createElement('div');
+  PRAYER_ORDER.forEach(p=>{
+    const cur = (state.settings.adjustments && state.settings.adjustments[p]) || 0;
+    const row = document.createElement('div'); row.className='setting-row';
+    row.innerHTML = `<div class="label">${PRAYER_LABEL[p]}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#8722;</button>
+        <span style="font-size:13px;min-width:52px;text-align:center;">${cur>0?'+':''}${cur} min</span>
+        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#43;</button>
+      </div>`;
+    const buttons = row.querySelectorAll('button');
+    buttons[0].onclick = ()=>{
+      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
+      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) - 1;
+      saveState(); renderSettings(); renderToday();
+    };
+    buttons[1].onclick = ()=>{
+      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
+      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) + 1;
+      saveState(); renderSettings(); renderToday();
+    };
+    adjWrap.appendChild(row);
+  });
+  wrap.appendChild(adjWrap);
+  const mmBtn = document.createElement('button'); mmBtn.type='button'; mmBtn.className='btn btn-ghost'; mmBtn.style.marginTop='12px'; mmBtn.textContent='Match my masjid';
+  mmBtn.onclick = openMatchMasjid;
+  wrap.appendChild(mmBtn);
+  const mmHint = document.createElement('div'); mmHint.className='sub'; mmHint.style.marginTop='6px';
+  mmHint.textContent = 'Type in today\'s times from your mosque and Waqt picks the closest method and sets the adjustments for you.';
+  wrap.appendChild(mmHint);
+
+  const stData = document.createElement('div'); stData.className='section-title'; stData.style.cssText='padding:0;margin-top:22px;'; stData.textContent='Your data';
+  wrap.appendChild(stData);
+  const dataWrap = document.createElement('div');
+  const dataBtns = document.createElement('div'); dataBtns.className='data-btns';
+  const exportBtn = document.createElement('button'); exportBtn.className='btn btn-ghost btn-sm'; exportBtn.textContent='Export backup';
+  const importBtn = document.createElement('button'); importBtn.className='btn btn-ghost btn-sm'; importBtn.textContent='Import backup';
+  const fileInput = document.createElement('input'); fileInput.type='file'; fileInput.accept='application/json'; fileInput.style.display='none';
+  const statusLine = document.createElement('div'); statusLine.className='status-line';
+
+  exportBtn.onclick = ()=>{
+    const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `waqt-backup-${todayKey()}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    statusLine.textContent = 'Backup downloaded.';
+  };
+  importBtn.onclick = ()=>{ fileInput.click(); };
+  fileInput.onchange = (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(!parsed || typeof parsed.days !== 'object') throw new Error('bad file');
+        state = Object.assign(defaultState(), parsed);
+        state.settings = Object.assign(defaultState().settings, parsed.settings||{});
+        if(!state.recurringTasks) state.recurringTasks = [];
+        if(!state.todoList) state.todoList = [];
+        if(typeof state.scratchpad !== 'string') state.scratchpad = '';
+        if(typeof state.scratchDrawing !== 'string') state.scratchDrawing = '';
+        if(typeof state.peakScore !== 'number') state.peakScore = 0;
+        if(typeof state.laterCollapsed !== 'boolean') state.laterCollapsed = false;
+        saveState();
+        applyTheme();
+        timingsCache = {};
+        loadPrayerTimesFor(viewDate).then(()=>{ renderToday(); renderProgress(); renderSettings(); renderTodo(); });
+        statusLine.textContent = 'Backup imported successfully.';
+      }catch(err){
+        statusLine.textContent = 'Could not read that file — make sure it\'s a Waqt backup.';
+      }
+    };
+    reader.readAsText(file);
+    fileInput.value = '';
+  };
+
+  dataBtns.appendChild(exportBtn); dataBtns.appendChild(importBtn);
+  dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine);
+  wrap.appendChild(dataWrap);
+
+  container.appendChild(wrap);
+}
+function renderTodo(){
+  const container = document.getElementById('tab-todo'); container.innerHTML='';
+
+  const topWrap = document.createElement('div'); topWrap.style.cssText='max-width:480px;margin:0 auto;padding:16px 20px 0;';
+  const dumpBtn = document.createElement('button'); dumpBtn.className='btn';
+  dumpBtn.style.cssText='background:var(--sand);color:var(--ink);border:1px solid var(--sand-line);';
+  dumpBtn.textContent = '✎ Open brain dump';
+  dumpBtn.onclick = openBrainDump;
+  topWrap.appendChild(dumpBtn);
+  container.appendChild(topWrap);
+
+  const hr = document.createElement('hr'); hr.className='divider-line'; hr.style.maxWidth='440px'; hr.style.margin='16px auto';
+  container.appendChild(hr);
+
+  const list = state.todoList;
+  const isTask = x => x.type!=='divider';
+  // older saves had one global "later" fold flag; hand it to the first divider
+  if(state.laterCollapsed){ const d0 = list.find(x=>x.type==='divider'); if(d0 && d0.collapsed===undefined) d0.collapsed = true; state.laterCollapsed = false; saveState(); }
+  const firstDiv = list.findIndex(x=>x.type==='divider');
+  const hasDivider = firstDiv !== -1;
+  const nowOpen = list.filter((x,i)=>isTask(x) && !x.done && (!hasDivider || i<firstDiv)).length;
+  const laterOpen = hasDivider ? list.filter((x,i)=>isTask(x) && !x.done && i>firstDiv).length : 0;
+  const laterTotal = hasDivider ? list.filter((x,i)=>isTask(x) && i>firstDiv).length : 0;
+  // open items per divider (up to the next divider)
+  const sectionOpen = {}; { let cur = null; list.forEach(x=>{ if(x.type==='divider'){ cur = x.id; sectionOpen[cur] = 0; } else if(cur!==null && !x.done) sectionOpen[cur]++; }); }
+
+  const intro = document.createElement('div');
+  intro.style.cssText = 'padding:0 20px 4px;max-width:480px;margin:0 auto;font-size:12.5px;color:var(--ink-soft);line-height:1.5;';
+  if(list.filter(isTask).length===0){
+    intro.textContent = 'A running list — nothing here is tied to a day or time.';
+  } else if(hasDivider){
+    intro.innerHTML = `<span style="color:var(--ink);font-weight:500;">${nowOpen} to do now</span> · ${laterOpen} below the dividers`
+      + (laterTotal===0 ? '<br>Drag the divider up — everything below it is set aside.' : '');
+  } else {
+    intro.innerHTML = `<span style="color:var(--ink);font-weight:500;">${nowOpen} to do</span> · add a divider to set things aside for later`;
+  }
+  container.appendChild(intro);
+
+  const wrap = document.createElement('div'); wrap.style.cssText='max-width:480px;margin:14px auto 0;padding:0 20px;';
+
+  if(list.length===0 && !todoAddOpen){
+    const empty = document.createElement('div'); empty.className='empty';
+    empty.textContent = 'Nothing on your list yet.';
+    wrap.appendChild(empty);
+  }
+  // which rows are on screen (a collapsed divider hides the items up to the next divider)
+  let collapsedNow = false;
+  const visible = [];
+  list.forEach((item,i)=>{
+    if(item.type==='divider'){ collapsedNow = !!item.collapsed; visible.push({item,i,later:hasDivider && i>firstDiv}); }
+    else if(!collapsedNow) visible.push({item,i,later:hasDivider && i>firstDiv});
+  });
+  const visibleIds = new Set(visible.map(v=>v.item.id));
+  // drag only reorders what is visible; hidden items keep their slots
+  const reorderVisible = (id, targetIndex)=>{
+    reorderWithinGroup(state.todoList, x=>visibleIds.has(x.id), id, targetIndex);
+    // dropped into a folded section? open it so the item doesn't vanish
+    const at = state.todoList.findIndex(x=>x.id===id);
+    for(let k=at-1; k>=0; k--){ if(state.todoList[k].type==='divider'){ if(state.todoList[k].collapsed && state.todoList[at].type!=='divider') state.todoList[k].collapsed = false; break; } }
+    saveState(); renderTodo();
+  };
+
+  visible.forEach(({item,i,later:isLater})=>{
+    if(item.type==='divider'){
+      const row = document.createElement('div'); row.className='task divider-row';
+      row.dataset.id = item.id;
+      const arrow = item.collapsed ? '&#9656;' : '&#9662;';
+      const name = (item.label||'').trim() || 'Later';
+      const renaming = dividerRenamingId===item.id;
+      row.innerHTML = `<span class="div-line"></span>
+        ${renaming ? `<input type="text" class="div-input" maxlength="24" value="${escapeHtml(name)}" aria-label="Divider name">`
+                   : `<button type="button" class="div-label" title="Show or hide this section">${escapeHtml(name)} · ${sectionOpen[item.id]||0} ${arrow}</button>`}
+        <span class="div-line"></span>
+        <span class="tmeta">
+          <button class="ticon tedit" title="Rename divider">&#9998;</button>
+          <button class="ticon tdelete" title="Remove divider">&#10005;</button>
+          <button class="ticon drag-handle" title="Drag to move the divider">${GRIP_SVG}</button>
+        </span>`;
+      const lbl = row.querySelector('.div-label');
+      if(lbl) lbl.onclick = ()=>{ item.collapsed = !item.collapsed; saveState(); renderTodo(); };
+      row.querySelector('.tedit').onclick = ()=>{ dividerRenamingId = item.id; renderTodo(); };
+      row.querySelector('.tdelete').onclick = ()=>{ deleteTodoItem(item.id); };
+      const inp = row.querySelector('.div-input');
+      if(inp){
+        let finished = false;
+        const finish = (save)=>{ if(finished) return; finished = true; if(save){ const v = inp.value.trim(); item.label = (v && v!=='Later') ? v : ''; saveState(); } dividerRenamingId = null; renderTodo(); };
+        inp.onkeydown = (e)=>{ if(e.key==='Enter') finish(true); if(e.key==='Escape') finish(false); };
+        inp.onblur = ()=>finish(true);
+        setTimeout(()=>{ inp.focus(); inp.select(); }, 0);
+      }
+      enableDragReorder(row.querySelector('.drag-handle'), row, (targetIndex)=>reorderVisible(item.id, targetIndex));
+      wrap.appendChild(row);
+      return;
+    }
+
+    const el = document.createElement('div'); el.className='task'+(item.done?' done':'')+(isLater?' later':'');
+    el.dataset.id = item.id;
+    el.innerHTML = `<div class="tcheck"></div><span class="tlabel">${escapeHtml(item.text)}</span>
+      <span class="tmeta">
+        <button class="ticon tedit" title="Edit">&#9998;</button>
+        <button class="ticon tdelete" title="Delete">&#10005;</button>
+        <button class="ticon drag-handle" title="Drag to reorder">${GRIP_SVG}</button>
+      </span>`;
+    el.querySelector('.tcheck').onclick = ()=>{
+      item.done = !item.done;
+      if(item.done) item.doneAt = todayKey(); else delete item.doneAt;
+      saveState(); renderTodo(); if(item.done) celebrateIfNew();
+    };
+    el.querySelector('.tdelete').onclick = ()=>{ deleteTodoItem(item.id); };
+    el.querySelector('.tedit').onclick = ()=>{ todoAddOpen=true; todoEditingId=item.id; renderTodo(); };
+    enableDragReorder(el.querySelector('.drag-handle'), el, (targetIndex)=>reorderVisible(item.id, targetIndex));
+    wrap.appendChild(el);
+  });
+
+  const editingItem = todoEditingId ? list.find(x=>x.id===todoEditingId) : null;
+  if(todoAddOpen){
+    const form = document.createElement('div'); form.className='add-task-form';
+    const tKey = todoEditingId||'new';
+    if(!todoDraft || todoDraft.key!==tKey) todoDraft = { key:tKey, text: editingItem?editingItem.text:'' };
+    form.innerHTML = `<div class="row1"><input type="text" id="todoinput" placeholder="What do you need to do?" value="${escapeHtml(todoDraft.text)}"></div>`;
+    form.querySelector('#todoinput').addEventListener('input', e=>{ todoDraft.text = e.target.value; });
+    const actions = document.createElement('div'); actions.className='actions';
+    const cancelBtn = document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='cancel'; cancelBtn.textContent='Cancel';
+    const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.className='confirm'; saveBtn.textContent = editingItem ? 'Save changes' : 'Add';
+    cancelBtn.onclick = ()=>{ todoAddOpen=false; todoEditingId=null; todoDraft=null; renderTodo(); };
+    const confirm = ()=>{
+      const val = document.getElementById('todoinput').value.trim();
+      if(!val) return;
+      if(editingItem){ editingItem.text = val; }
+      else { state.todoList.push({id:Date.now(), text:val, done:false}); }
+      todoAddOpen=false; todoEditingId=null; todoDraft=null;
+      saveState(); renderTodo();
+    };
+    saveBtn.onclick = confirm;
+    actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+    form.appendChild(actions);
+    form.querySelector('input').onkeydown = (e)=>{ if(e.key==='Enter') confirm(); if(e.key==='Escape') cancelBtn.onclick(); };
+    wrap.appendChild(form);
+  } else {
+    const row = document.createElement('div'); row.style.cssText='display:flex;gap:6px;';
+    const addBtn = document.createElement('button'); addBtn.className='add-task'; addBtn.textContent='+ add to list'; addBtn.style.flex='1';
+    addBtn.onclick = ()=>{ todoAddOpen=true; todoEditingId=null; renderTodo(); };
+    row.appendChild(addBtn);
+    const divBtn = document.createElement('button'); divBtn.className='add-task'; divBtn.textContent='+ divider'; divBtn.style.cssText='width:auto;flex:0 0 auto;';
+    divBtn.onclick = ()=>{ state.todoList.push({id:Date.now()+Math.floor(Math.random()*1000), type:'divider'}); saveState(); renderTodo(); };
+    row.appendChild(divBtn);
+    wrap.appendChild(row);
+  }
+
+  container.appendChild(wrap);
+  if(todoAddOpen){ const el=document.getElementById('todoinput'); if(el) el.focus(); }
+}
+
+// Words that usually start a to-do. If a piece of a sentence starts with one of these,
+// it's treated as its own task; otherwise it's the object of the task before it
+// ("buy milk, eggs and bread" stays one task, "email tutor and book dentist" becomes two).
+const TASK_VERBS = new Set(('do redo finish start begin continue complete go come get buy pick drop collect return send post email text message call ring phone reply '+
+  'book cancel pay order renew apply sign register submit print scan upload download fill write rewrite draft edit read reread review revise study learn practise practice memorise memorize '+
+  'watch listen attend meet see visit help ask tell remind check sort fix repair clean tidy wash hoover vacuum iron fold pack unpack cook make bake prepare prep eat drink '+
+  'shower bath sleep nap rest wake pray recite memorise train workout run walk jog swim stretch lift gym play charge update install backup organise organize plan schedule '+
+  'move change take bring put open close file research finalise finalize plan revise test quiz mark grade present record film shop groceries').split(/\s+/));
+const NOT_VERB_ING = new Set(['morning','evening','thing','something','nothing','everything','anything','meeting','building','clothing','ceiling','wedding','pudding','spring','string','king','ring','evening','ending','during']);
+const PRONOUN_START = /^(?:i|we|you)\s+(?:need|have|want|should|must|will|gotta|got)\s+to\s+/i;
+function startsWithVerb(fragment){
+  let t = fragment.toLowerCase().trim()
+    .replace(/^[-*•\s]+/,'')
+    .replace(PRONOUN_START,'')
+    .replace(/^(?:i'?ll|i will|i'?m going to|going to|gonna|need to|have to|want to|got to|gotta|remember to|don'?t forget to|also|then|and|plus|maybe|quickly|finally|later|first|please|to)\s+/g,'')
+    .replace(/^(?:after|before|by|at|around|on|tomorrow|tonight|today|this)\s+\S+\s*,?\s+/,''); // "after fajr read quran"
+  t = t.replace(/^(?:also|then|to)\s+/,'');
+  const w = (t.match(/^[a-z']+/)||[''])[0];
+  if(!w) return false;
+  if(TASK_VERBS.has(w)) return true;
+  if(w.length>4 && w.endsWith('ing') && !NOT_VERB_ING.has(w)) return true;   // "washing the car"
+  return false;
+}
+function smartSplitLine(line){
+  const out = [];
+  // 1. "physics: notes, past papers, flashcards" -> each item after the colon is a task
+  const colon = line.match(/^([^:]{1,40}):\s*(.+)$/);
+  if(colon && /,|\band\b/.test(colon[2])){
+    colon[2].split(/\s*(?:,|;|\band\b|&)\s*/i).map(x=>x.trim()).filter(Boolean).forEach(x=>{ const c=cleanTaskFragment(x); if(c) out.push(c); });
+    if(out.length) return out;
+  }
+  // 2. sentences and hard sequencing words always start a new task
+  const chunks = line
+    .split(/(?<=[.!?])\s+|\s*;\s*|\s*,?\s*\b(?:and then|after that|afterwards|then|also|plus|next)\b\s*/i)
+    .map(x=>x && x.trim()).filter(Boolean);
+  chunks.forEach(chunk=>{
+    // 3. commas, "and", "&": split only where the next piece looks like a new action
+    const pieces = chunk.split(/\s*(,\s*and\b|,|\band\b|&)\s*/i);
+    // pieces = [text, sep, text, sep, text...]
+    const parts = []; for(let i=0;i<pieces.length;i+=2){ if(pieces[i] && pieces[i].trim()) parts.push({text:pieces[i].trim(), sep:(pieces[i-1]||'').trim()}); }
+    if(parts.length===0) return;
+    const firstIsVerb = startsWithVerb(parts[0].text);
+    const groups = [];
+    parts.forEach((p,i)=>{
+      if(i===0){ groups.push(p.text); return; }
+      const newTask = startsWithVerb(p.text) || !firstIsVerb;   // a list of bare nouns = a list of tasks
+      if(newTask) groups.push(p.text);
+      else {
+        const joiner = /and/i.test(p.sep) ? ' and ' : (p.sep==='&' ? ' & ' : ', ');
+        groups[groups.length-1] += joiner + p.text;
+      }
+    });
+    groups.forEach(g=>{ const c = cleanTaskFragment(g); if(c) out.push(c); });
+  });
+  return out.length ? out : [cleanTaskFragment(line)];
+}
+// Aggressive split used by the "Split" button in the preview.
+function hardSplit(text){
+  return text.split(/\s*(?:,\s*and\b|,|\band\b|&|\bthen\b)\s*/i).map(x=>x.trim()).filter(Boolean).map(cleanTaskFragment).filter(Boolean);
+}
+function cleanTaskFragment(text){
+  let t = text.replace(/^[-*•\s]+/, '').trim();
+
+  // strip leading intent/filler phrases (may stack, so loop a few times)
+  const leadingPatterns = [
+    /^i\s*(?:'m|am)\s+(?:going|planning|about)\s+to\s+/i,
+    /^i\s*(?:really|also|just)?\s*(?:want|need|have|plan|got|gotta)\s+to\s+/i,
+    /^i'?ll\s+/i,
+    /^i\s+(?:should|must|will|shall)\s+/i,
+    /^let'?s\s+/i,
+    /^gonna\s+/i,
+    /^going to\s+/i,
+    /^please\s+/i,
+    /^don'?t forget to\s+/i,
+    /^remember to\s+/i,
+    /^need to\s+/i,
+    /^have to\s+/i,
+    /^to\s+/i
+  ];
+  for(let i=0;i<3;i++){
+    let changed = false;
+    for(const re of leadingPatterns){
+      if(re.test(t)){ t = t.replace(re,''); changed = true; }
+    }
+    if(!changed) break;
+  }
+
+  // strip a small set of generic filler verbs when they lead into a clear object
+  // (e.g. "start maths homework" -> "maths homework", "eat food" -> "food")
+  t = t.replace(/^(?:start|begin|do|get|have|eat)\s+(?=\S)/i, '');
+  t = t.replace(/^(?:the|my|some)\s+(?=\S)/i, '');   // "do the laundry" -> "laundry"
+
+  // strip trailing time-filler adverbs
+  for(let i=0;i<2;i++){
+    t = t.replace(/\s*(?:early|late|soon|now|later|today|tonight|asap|first)\.?$/i, '').trim();
+  }
+
+  t = t.replace(/[.\s]+$/, '').trim();
+  if(t.length===0) t = text.trim().replace(/[.\s]+$/, ''); // safety net — never lose content entirely
+  if(t.length===0) return '';
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function deleteTodoItem(itemId){
+  const idx = state.todoList.findIndex(x=>x.id===itemId);
+  if(idx===-1) return;
+  const removed = state.todoList[idx];
+  state.todoList.splice(idx,1);
+  saveState(); renderTodo();
+  showUndoToast(removed.type==='divider' ? 'Divider removed' : 'Removed from list', ()=>{
+    state.todoList.splice(idx,0,removed);
+    saveState(); renderTodo();
+  });
+}
+
+function openBrainDump(){
+  ensureBrainModal();
+  document.getElementById('brain-overlay').classList.add('active');
+  document.getElementById('brain-card').classList.remove('fullscreen');
+  document.getElementById('brain-expand-btn').innerHTML = '&#10021;';
+  renderBrainBody();
+}
+function closeBrainDump(){
+  if(brainMode==='draw') saveCanvasSnapshot();
+  document.getElementById('brain-overlay').classList.remove('active');
+  renderTodo();
+}
+function toggleBrainFullscreen(){
+  if(brainMode==='draw') saveCanvasSnapshot();
+  const card = document.getElementById('brain-card');
+  const isFull = card.classList.toggle('fullscreen');
+  document.getElementById('brain-expand-btn').innerHTML = isFull ? '&#10538;' : '&#10021;';
+  if(brainMode==='draw') setTimeout(setupCanvas, 60);
+}
+function ensureBrainModal(){
+  if(document.getElementById('brain-overlay')) return;
+  const overlay = document.createElement('div'); overlay.id='brain-overlay'; overlay.className='brain-overlay';
+  overlay.innerHTML = `
+    <div class="brain-card" id="brain-card">
+      <div class="brain-header">
+        <div class="btitle">Brain dump</div>
+        <div class="brain-header-btns">
+          <button class="brain-icon-btn" id="brain-expand-btn" type="button" title="Expand">&#10021;</button>
+          <button class="brain-icon-btn" id="brain-close-btn" type="button" title="Close">&#10005;</button>
+        </div>
+      </div>
+      <div class="brain-tabs">
+        <button id="brain-tab-type" type="button">Type</button>
+        <button id="brain-tab-draw" type="button">Draw</button>
+      </div>
+      <div class="brain-body" id="brain-body"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) closeBrainDump(); });
+  document.getElementById('brain-close-btn').onclick = closeBrainDump;
+  document.getElementById('brain-expand-btn').onclick = toggleBrainFullscreen;
+  document.getElementById('brain-tab-type').onclick = ()=>switchBrainMode('type');
+  document.getElementById('brain-tab-draw').onclick = ()=>switchBrainMode('draw');
+}
+function switchBrainMode(mode){
+  if(brainMode==='draw' && mode!=='draw') saveCanvasSnapshot();
+  brainMode = mode;
+  renderBrainBody();
+}
+
+function renderBrainPreview(body){
+  const P = brainPreview;
+  const head = document.createElement('div'); head.className='bp-head';
+  head.textContent = P.length===1 ? 'This will be 1 item. Check it looks right:' : `This will be ${P.length} items. Check they look right:`;
+  body.appendChild(head);
+  const list = document.createElement('div'); list.className='bp-list';
+  P.forEach((txt,i)=>{
+    const row = document.createElement('div'); row.className='bp-row';
+    const inp = document.createElement('input'); inp.type='text'; inp.value=txt; inp.className='bp-input'; inp.setAttribute('aria-label','Item '+(i+1));
+    inp.addEventListener('input', ()=>{ P[i] = inp.value; });
+    const mk = (label, title, fn, disabled)=>{ const b=document.createElement('button'); b.type='button'; b.className='bp-btn'; b.innerHTML=label; b.title=title; b.setAttribute('aria-label',title); if(disabled) b.disabled=true; b.onclick=fn; return b; };
+    const canSplit = hardSplit(P[i]).length>1;
+    row.appendChild(inp);
+    row.appendChild(mk('Split','Split this into separate items', ()=>{ const parts = hardSplit(P[i]); P.splice(i,1,...parts); renderBrainBody(); }, !canSplit));
+    row.appendChild(mk('Join','Join with the item above', ()=>{ P[i-1] = P[i-1].replace(/\\s+$/,'') + ' and ' + P[i].charAt(0).toLowerCase() + P[i].slice(1); P.splice(i,1); renderBrainBody(); }, i===0));
+    row.appendChild(mk('&#10005;','Remove', ()=>{ P.splice(i,1); if(P.length===0) brainPreview=null; renderBrainBody(); }));
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+  const actions = document.createElement('div'); actions.className='brain-actions';
+  const back = document.createElement('button'); back.type='button'; back.className='btn btn-ghost btn-sm'; back.textContent='Back to writing';
+  back.onclick = ()=>{ brainPreview=null; renderBrainBody(); };
+  const add = document.createElement('button'); add.type='button'; add.className='btn btn-sm'; add.style.cssText='background:var(--sage);color:#fff;';
+  const n = P.filter(x=>x.trim()).length;
+  add.textContent = n===1 ? 'Add 1 item to list' : `Add ${n} items to list`;
+  add.onclick = ()=>{
+    P.map(x=>x.trim()).filter(Boolean).forEach(t=>{ state.todoList.push({id:Date.now()+Math.random(), text:t, done:false}); });
+    brainPreview=null; state.scratchpad=''; saveState(); renderBrainBody();
+    if(typeof renderTodo==='function') renderTodo();
+  };
+  actions.appendChild(back); actions.appendChild(add);
+  body.appendChild(actions);
+}
+function renderBrainBody(){
+  document.getElementById('brain-tab-type').classList.toggle('active', brainMode==='type');
+  document.getElementById('brain-tab-draw').classList.toggle('active', brainMode==='draw');
+  const body = document.getElementById('brain-body');
+  body.innerHTML = '';
+
+  if(brainMode==='type' && brainPreview){ renderBrainPreview(body); return; }
+  if(brainMode==='type'){
+    const ta = document.createElement('textarea'); ta.className='brain-textarea'; ta.id='brain-textarea';
+    ta.placeholder = 'Everything on your mind, one thing per line…';
+    ta.value = state.scratchpad||'';
+    ta.oninput = ()=>{ state.scratchpad = ta.value; saveState(); };
+    body.appendChild(ta);
+
+    const actions = document.createElement('div'); actions.className='brain-actions';
+    const clearBtn = document.createElement('button'); clearBtn.type='button'; clearBtn.className='btn btn-ghost btn-sm'; clearBtn.textContent='Clear';
+    const turnBtn = document.createElement('button'); turnBtn.type='button'; turnBtn.className='btn btn-sm'; turnBtn.style.cssText='background:var(--sage);color:#fff;'; turnBtn.textContent='Turn into list items';
+    clearBtn.onclick = ()=>{ state.scratchpad=''; saveState(); renderBrainBody(); };
+    turnBtn.onclick = ()=>{
+      const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+      if(lines.length===0) return;
+      const tasks = [];
+      lines.forEach(line=>{ smartSplitLine(line).forEach(t=>tasks.push(t)); });
+      brainPreview = tasks;     // let the user check the split before anything is added
+      renderBrainBody();
+    };
+    actions.appendChild(clearBtn); actions.appendChild(turnBtn);
+    body.appendChild(actions);
+    setTimeout(()=>ta.focus(), 0);
+  } else {
+    const colors = ['#2B2B26','#5C7A5C','#C97B4A','#6B6A62'];
+    const colorRow = document.createElement('div'); colorRow.className='brain-colors';
+    colors.forEach(c=>{
+      const dot = document.createElement('button'); dot.type='button'; dot.className='brain-color'+(c===currentColor?' active':'');
+      dot.style.background=c;
+      dot.onclick = ()=>{ currentColor=c; colorRow.querySelectorAll('.brain-color').forEach(d=>d.classList.remove('active')); dot.classList.add('active'); };
+      colorRow.appendChild(dot);
+    });
+    const eraseBtn = document.createElement('button'); eraseBtn.type='button'; eraseBtn.className='btn btn-ghost btn-sm'; eraseBtn.style.marginLeft='auto'; eraseBtn.textContent='Eraser';
+    eraseBtn.onclick = ()=>{ currentColor='ERASER'; colorRow.querySelectorAll('.brain-color').forEach(d=>d.classList.remove('active')); };
+    colorRow.appendChild(eraseBtn);
+    body.appendChild(colorRow);
+
+    const canvasWrap = document.createElement('div'); canvasWrap.className='brain-canvas-wrap';
+    const canvas = document.createElement('canvas'); canvas.id='brain-canvas';
+    canvasWrap.appendChild(canvas);
+    body.appendChild(canvasWrap);
+
+    const actions = document.createElement('div'); actions.className='brain-actions';
+    const clearBtn = document.createElement('button'); clearBtn.type='button'; clearBtn.className='btn btn-ghost btn-sm'; clearBtn.textContent='Clear drawing';
+    clearBtn.onclick = ()=>{
+      const c = document.getElementById('brain-canvas');
+      if(drawCtx && c) drawCtx.clearRect(0,0,c.width,c.height);
+      state.scratchDrawing=''; saveState();
+    };
+    actions.appendChild(clearBtn);
+    body.appendChild(actions);
+
+    setTimeout(setupCanvas, 0);
+  }
+}
+function setupCanvas(){
+  const canvas = document.getElementById('brain-canvas');
+  if(!canvas) return;
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  canvas.width = Math.max(1, rect.width*dpr);
+  canvas.height = Math.max(1, rect.height*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  drawCtx = ctx;
+
+  if(state.scratchDrawing){
+    const img = new Image();
+    img.onload = ()=>{ ctx.drawImage(img,0,0, rect.width, rect.height); };
+    img.src = state.scratchDrawing;
+  }
+
+  let isDrawing=false, lastX=0, lastY=0;
+  const getPos = (e)=>{ const r = canvas.getBoundingClientRect(); return { x: e.clientX-r.left, y: e.clientY-r.top }; };
+  canvas.onpointerdown = (e)=>{
+    isDrawing=true;
+    const p = getPos(e); lastX=p.x; lastY=p.y;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  };
+  canvas.onpointermove = (e)=>{
+    if(!isDrawing) return;
+    const p = getPos(e);
+    ctx.strokeStyle = currentColor==='ERASER' ? '#FFFFFF' : currentColor;
+    ctx.lineWidth = currentColor==='ERASER' ? 18 : 3;
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke();
+    lastX=p.x; lastY=p.y;
+  };
+  const endStroke = ()=>{ if(isDrawing){ isDrawing=false; saveCanvasSnapshot(); } };
+  canvas.onpointerup = endStroke;
+  canvas.onpointerleave = endStroke;
+  canvas.onpointercancel = endStroke;
+}
+function saveCanvasSnapshot(){
+  const canvas = document.getElementById('brain-canvas');
+  if(!canvas) return;
+  try{ state.scratchDrawing = canvas.toDataURL('image/png'); saveState(); }catch(e){}
+}
+
+function settingRow(label, sub, value, onChange){
+  const row = document.createElement('div'); row.className='setting-row';
+  row.innerHTML = `<div><div class="label">${label}</div><div class="sub">${sub}</div></div><div class="switch ${value?'on':''}"><div class="knob"></div></div>`;
+  const sw = row.querySelector('.switch');
+  sw.onclick = ()=>{ const nv=!sw.classList.contains('on'); sw.classList.toggle('on', nv); onChange(nv); };
+  return row;
+}
+
+if(state.onboarded){
+  const entryBtn = document.getElementById('entry-btn');
+  entryBtn.textContent = 'Continue';
+  entryBtn.onclick = launchApp;
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* offline support just won't be available — the app still works fine online */ });
+  });
+}
+</script>
+</body>
+</html>
