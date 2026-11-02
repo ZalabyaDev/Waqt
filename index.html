@@ -509,12 +509,38 @@ function todayKey(){ return dateKeyFromDate(new Date()); }
 function keyOffset(offsetDays){ const d=new Date(); d.setDate(d.getDate()+offsetDays); return dateKeyFromDate(d); }
 function viewKey(){ return dateKeyFromDate(viewDate); }
 // ---- repeating tasks on chosen weekdays (0 = Sunday ... 6 = Saturday, like Date.getDay) ----
+// Unique ids: never the same twice, even when several things are made in the same millisecond.
+var _lastId = 0;
+function newId(){ let t = Date.now(); if(t <= _lastId) t = _lastId + 1; _lastId = t; return t; }
 const WEEK_ORDER = [1,2,3,4,5,6,0];
 const WEEK_SHORT = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
 const WEEK_LETTER = {0:'S',1:'M',2:'T',3:'W',4:'T',5:'F',6:'S'};
 function templateOn(rt, key){
+  if(rt.start && key < rt.start) return false;      // never back-fill days before it was created
+  if(rt.until && key > rt.until) return false;      // optional end date
   if(!Array.isArray(rt.days) || rt.days.length===0 || rt.days.length===7) return true;
   return rt.days.includes(parseKey(key).getDay());
+}
+function fmtDayShort(key){ return parseKey(key).toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+// Stop a repeating task: removes it from today onwards (unticked copies), keeps past days as history.
+function stopRepeating(templateId, withUndo){
+  const idx = state.recurringTasks.findIndex(x=>x.id===templateId);
+  if(idx===-1) return;
+  const tpl = state.recurringTasks[idx];
+  const today = todayKey(), removed = [];
+  Object.keys(state.days).forEach(k=>{
+    if(k < today) return;
+    const day = state.days[k];
+    day.tasks.forEach((t,i)=>{ if(t.templateId===templateId && !t.done) removed.push({k, i, t}); });
+    day.tasks = day.tasks.filter(t=>!(t.templateId===templateId && !t.done));
+  });
+  state.recurringTasks.splice(idx,1);
+  saveState(); renderToday(); if(document.getElementById('tab-settings').style.display!=='none') renderSettings();
+  if(withUndo) showUndoToast('Stopped repeating', ()=>{
+    state.recurringTasks.splice(idx,0,tpl);
+    removed.forEach(r=>{ state.days[r.k].tasks.splice(Math.min(r.i, state.days[r.k].tasks.length), 0, r.t); });
+    saveState(); renderToday(); if(document.getElementById('tab-settings').style.display!=='none') renderSettings();
+  });
 }
 function describeDays(days){
   if(!Array.isArray(days) || days.length===0 || days.length===7) return 'every day';
@@ -531,7 +557,7 @@ function syncTemplateFuture(rt){
     const day = state.days[k];
     const has = day.tasks.some(t=>t.templateId===rt.id);
     if(templateOn(rt,k)){
-      if(!has) day.tasks.push({id:Date.now()+Math.floor(Math.random()*100000), block:rt.block, text:rt.text, minutes:rt.minutes||null, startTime:rt.startTime||null, done:false, recurring:true, templateId:rt.id});
+      if(!has) day.tasks.push({id:newId(), block:rt.block, text:rt.text, minutes:rt.minutes||null, startTime:rt.startTime||null, done:false, recurring:true, templateId:rt.id});
     } else {
       day.tasks = day.tasks.filter(t=>!(t.templateId===rt.id && !t.done));
     }
@@ -552,7 +578,7 @@ function dayChips(selected, onToggle){
 function ensureDay(key){
   if(!state.days[key]){
     const tasks = state.recurringTasks.filter(rt=>templateOn(rt,key)).map((rt,i)=>({
-      id: Date.now()+i, block: rt.block, text: rt.text,
+      id: newId(), block: rt.block, text: rt.text,
       minutes: rt.minutes||null, startTime: rt.startTime||null,
       done:false, recurring:true, templateId: rt.id
     }));
@@ -1390,7 +1416,11 @@ function renderAddTaskUI(parent, blockId, day){
         });
         rw.appendChild(presets);
         const hint = document.createElement('div'); hint.className='slot-hint';
-        hint.textContent = D.days.length ? `Repeats ${describeDays(D.days)}` : 'Pick at least one day';
+        hint.textContent = D.days.length ? `Repeats ${describeDays(D.days)}${D.until ? ' until '+fmtDayShort(D.until) : ''}` : 'Pick at least one day';
+        const untilRow = document.createElement('div'); untilRow.className='slot-row';
+        untilRow.innerHTML = `<label>Until (optional)<input type="date" id="taskuntil" class="timefield" value="${D.until||''}" min="${viewKey()}"></label>`;
+        untilRow.querySelector('input').addEventListener('change', e=>{ D.until = e.target.value || ''; renderToday(); });
+        rw.appendChild(untilRow);
         rw.appendChild(hint);
         form.appendChild(rw);
       }
@@ -1419,13 +1449,14 @@ function renderAddTaskUI(parent, blockId, day){
       if(editingTask){
         editingTask.text = val; editingTask.minutes = minutes; editingTask.startTime = startTime;
       } else {
-        const task = {id:Date.now(), block:blockId, text:val, minutes, startTime, done:false};
+        const task = {id:newId(), block:blockId, text:val, minutes, startTime, done:false};
         const repeatChk = document.getElementById('taskrepeat');
         let addToday = true;
         if(repeatChk && repeatChk.checked && (D.days||[]).length>0){
           const days = (D.days.length===7) ? undefined : WEEK_ORDER.filter(d=>D.days.includes(d));
-          const template = {id:Date.now()+1, block:blockId, text:val, minutes, startTime};
+          const template = {id:newId(), block:blockId, text:val, minutes, startTime, start: viewKey()};
           if(days) template.days = days;
+          if(D.until) template.until = D.until;
           state.recurringTasks.push(template);
           task.recurring = true; task.templateId = template.id;
           addToday = templateOn(template, viewKey());
@@ -1486,16 +1517,40 @@ function hideUndoToast(){
   pendingUndo = null;
 }
 
-function deleteTask(day, taskId){
+function deleteTask(day, taskId, onlyThisDay){
   const idx = day.tasks.findIndex(tk=>tk.id===taskId);
   if(idx===-1) return;
   const removed = day.tasks[idx];
+  if(!onlyThisDay && removed.templateId && state.recurringTasks.some(r=>r.id===removed.templateId)){
+    openRepeatDeleteChoice(day, removed); return;
+  }
   day.tasks.splice(idx,1);
   saveState(); renderToday();
   showUndoToast('Task deleted', ()=>{
     day.tasks.splice(idx,0,removed);
     saveState(); renderToday();
   });
+}
+
+function openRepeatDeleteChoice(day, task){
+  if(document.getElementById('rep-del')) return;
+  const tpl = state.recurringTasks.find(r=>r.id===task.templateId);
+  const o = document.createElement('div'); o.id='rep-del'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card">
+    <div class="notice-title">Delete a repeating task</div>
+    <div class="notice-body"><p><strong>${escapeHtml(task.text)}</strong> repeats ${describeDays(tpl && tpl.days)}${tpl && tpl.until ? ' until '+fmtDayShort(tpl.until) : ''}.</p></div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="rd-all">Delete this and all future ones</button>
+      <button type="button" class="btn btn-ghost" id="rd-one">Just this day</button>
+      <button type="button" class="notice-link" id="rd-no">Cancel</button>
+    </div></div>`;
+  document.body.appendChild(o);
+  const close = ()=>o.remove();
+  o.addEventListener('click', e=>{ if(e.target===o) close(); });
+  o.querySelector('#rd-no').onclick = close;
+  o.querySelector('#rd-one').onclick = ()=>{ close(); deleteTask(day, task.id, true); };
+  o.querySelector('#rd-all').onclick = ()=>{ close(); stopRepeating(task.templateId, true); };
 }
 
 function addMinutesHHMM(hhmm, mins){
@@ -2155,7 +2210,7 @@ function renderSettings(){
     state.recurringTasks.forEach(rt=>{
       const item = document.createElement('div'); item.className='recur-item';
       const blockLabel = rt.block==='none' ? '' : ' · after '+PRAYER_LABEL[rt.block];
-      item.innerHTML = `<div style="flex:1;min-width:0;"><div class="rlabel">${escapeHtml(rt.text)}</div><div class="rsub">Repeats ${describeDays(rt.days)}${blockLabel}</div></div><button class="ticon tdelete" title="Stop repeating">&#10005;</button>`;
+      item.innerHTML = `<div style="flex:1;min-width:0;"><div class="rlabel">${escapeHtml(rt.text)}</div><div class="rsub">Repeats ${describeDays(rt.days)}${rt.until ? ' until '+fmtDayShort(rt.until) : ''}${blockLabel}</div></div><button class="ticon tdelete" title="Stop repeating">&#10005;</button>`;
       const cur = Array.isArray(rt.days) && rt.days.length ? rt.days : [0,1,2,3,4,5,6];
       const chipsEl = dayChips(cur, d=>{
         let next = cur.includes(d) ? cur.filter(x=>x!==d) : cur.concat(d);
@@ -2165,13 +2220,7 @@ function renderSettings(){
       });
       chipsEl.classList.add('small');
       item.querySelector('div').appendChild(chipsEl);
-      item.querySelector('.tdelete').onclick = ()=>{
-        state.recurringTasks = state.recurringTasks.filter(x=>x.id!==rt.id);
-        Object.keys(state.days).forEach(k=>{
-          state.days[k].tasks = state.days[k].tasks.filter(tk=>tk.templateId!==rt.id);
-        });
-        saveState(); renderSettings(); renderToday();
-      };
+      item.querySelector('.tdelete').onclick = ()=>{ stopRepeating(rt.id, true); };
       recurWrap.appendChild(item);
     });
   }
@@ -2311,10 +2360,32 @@ function renderSettings(){
   };
 
   dataBtns.appendChild(exportBtn); dataBtns.appendChild(importBtn);
-  dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine);
+  const eraseBtn = document.createElement('button'); eraseBtn.type='button'; eraseBtn.className='notice-link acct-del'; eraseBtn.textContent='Erase everything on this device';
+  eraseBtn.onclick = openEraseDevice;
+  dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine); dataWrap.appendChild(eraseBtn);
   wrap.appendChild(dataWrap);
 
   container.appendChild(wrap);
+}
+function openEraseDevice(){
+  if(document.getElementById('erase-dev')) return;
+  const o = document.createElement('div'); o.id='erase-dev'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card">
+    <div class="notice-title">Start fresh?</div>
+    <div class="notice-body"><p>This deletes all your tasks, to-do list, repeating tasks, progress and settings <strong>on this device</strong>, and takes you back to the start. It can't be undone.</p>
+    ${signedIn() ? '<p>You\u2019ll also be signed out. Your synced copy online is kept. To delete that too, use "Delete my account" first.</p>' : '<p>Tip: export a backup first if you might want anything back.</p>'}</div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="er-yes" style="background:var(--terracotta);">Erase everything</button>
+      <button type="button" class="notice-link" id="er-no">Cancel</button>
+    </div></div>`;
+  document.body.appendChild(o);
+  o.addEventListener('click', e=>{ if(e.target===o) o.remove(); });
+  o.querySelector('#er-no').onclick = ()=>o.remove();
+  o.querySelector('#er-yes').onclick = ()=>{
+    try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(SYNC_STORE); }catch(e){}
+    location.reload();
+  };
 }
 function renderTodo(){
   const container = document.getElementById('tab-todo'); container.innerHTML='';
@@ -2450,7 +2521,7 @@ function renderTodo(){
       const val = document.getElementById('todoinput').value.trim();
       if(!val) return;
       if(editingItem){ editingItem.text = val; }
-      else { state.todoList.push({id:Date.now(), text:val, done:false}); }
+      else { state.todoList.push({id:newId(), text:val, done:false}); }
       todoAddOpen=false; todoEditingId=null; todoDraft=null;
       saveState(); renderTodo();
     };
@@ -2465,7 +2536,7 @@ function renderTodo(){
     addBtn.onclick = ()=>{ todoAddOpen=true; todoEditingId=null; renderTodo(); };
     row.appendChild(addBtn);
     const divBtn = document.createElement('button'); divBtn.className='add-task'; divBtn.textContent='+ divider'; divBtn.style.cssText='width:auto;flex:0 0 auto;';
-    divBtn.onclick = ()=>{ state.todoList.push({id:Date.now()+Math.floor(Math.random()*1000), type:'divider'}); saveState(); renderTodo(); };
+    divBtn.onclick = ()=>{ state.todoList.push({id:newId(), type:'divider'}); saveState(); renderTodo(); };
     row.appendChild(divBtn);
     wrap.appendChild(row);
   }
@@ -2666,7 +2737,7 @@ function renderBrainPreview(body){
   const n = P.filter(x=>x.trim()).length;
   add.textContent = n===1 ? 'Add 1 item to list' : `Add ${n} items to list`;
   add.onclick = ()=>{
-    P.map(x=>x.trim()).filter(Boolean).forEach(t=>{ state.todoList.push({id:Date.now()+Math.random(), text:t, done:false}); });
+    P.map(x=>x.trim()).filter(Boolean).forEach(t=>{ state.todoList.push({id:newId(), text:t, done:false}); });
     brainPreview=null; state.scratchpad=''; saveState(); renderBrainBody();
     if(typeof renderTodo==='function') renderTodo();
   };
