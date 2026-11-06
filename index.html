@@ -131,6 +131,10 @@
   .acct-consent a{color:var(--sage);}
   .acct-msg{margin-top:8px;min-height:1em;}
   .acct-del{margin-top:10px;padding-left:0;color:var(--terracotta);}
+  .mt-card{max-height:90vh;overflow:auto;}
+  .mt-steps{margin:4px 0 10px;padding-left:20px;font-size:13.5px;line-height:1.5;}
+  .mt-steps li{margin-bottom:8px;}
+  .mt-text{min-height:120px;font-size:13px;}
   .auth-tabs{display:flex;background:var(--sand);border-radius:10px;padding:3px;margin-bottom:12px;}
   .auth-tabs button{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink-soft);cursor:pointer;}
   .auth-tabs button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.08);}
@@ -908,10 +912,12 @@ function hijriFor(dateObj){
 async function loadPrayerTimesFor(dateObj){
   const key = dateKeyFromDate(dateObj);
   if(timingsCache[key]) return timingsCache[key];
+  const h = hijriFor(dateObj); if(h) hijriCache[key] = h;
+  const mt = state.settings.useMasjid !== false && state.masjidTimes && state.masjidTimes[key];
+  if(mt){ timingsCache[key] = Object.assign({}, mt); sourceUsed[key] = 'masjid'; return timingsCache[key]; }
   const {lat,lng} = state.location;
   const t = calcPrayerTimes(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate(), lat, lng, state.settings.calcMethod, state.settings.asrSchool?1:0, state.settings.latRule||0);
   timingsCache[key] = {fajr:t.fajr, dhuhr:t.dhuhr, asr:t.asr, maghrib:t.maghrib, isha:t.isha};
-  const h = hijriFor(dateObj); if(h) hijriCache[key] = h;
   sourceUsed[key] = 'calc';
   return timingsCache[key];
 }
@@ -924,6 +930,7 @@ function shiftTime(hhmm, deltaMin){
 }
 function getAdjustedTimings(key){
   const raw = timingsCache[key]; if(!raw) return null;
+  if(sourceUsed[key]==='masjid') return Object.assign({}, raw);     // the masjid's own times: no adjustments
   const adj = state.settings.adjustments || {};
   const out = {};
   PRAYER_ORDER.forEach(p=>{ out[p] = shiftTime(raw[p], adj[p]||0); });
@@ -1104,7 +1111,13 @@ function renderToday(){
 
   const mNote = document.createElement('div'); mNote.className='sub'; mNote.style.cssText='text-align:center;padding:2px 24px 14px;font-size:11px;';
   const mName = ((METHODS.find(m=>m.v===state.settings.calcMethod)||{}).label)||'calculated';
-  mNote.textContent = `Times calculated (${mName}${state.settings.asrSchool?', Hanafi Asr':''}). Check with your local masjid.`;
+  const mr = masjidRange();
+  if(sourceUsed[key]==='masjid'){
+    const left = mr ? Math.round((parseKey(mr.last) - parseKey(todayKey()))/86400000) : 99;
+    mNote.textContent = left <= 3 && left >= 0 ? `Your masjid's times. Timetable ends ${fmtDayShort(mr.last)}, so add next month in Settings.` : `Your masjid's times.`;
+  } else {
+    mNote.textContent = `Times calculated (${mName}${state.settings.asrSchool?', Hanafi Asr':''})${mr && state.settings.useMasjid!==false ? '. No masjid times for this date, so add more in Settings.' : '. Check with your local masjid.'}`;
+  }
   container.appendChild(mNote);
 
   if(isToday) renderBanner(container, day, t, now);
@@ -1883,7 +1896,7 @@ function renderProgress(){
 var SB_URL = 'https://klofhwqotycgjkrquxiz.supabase.co';
 var SB_KEY = 'sb_publishable_mkwwaqz1excRDVZHnb4NCQ_T0Fg7r-J';   // publishable key: designed to live in the app
 var SYNC_STORE = 'waqtSync';                                       // kept apart from the main data so backups never contain login tokens
-var SYNC_KEYS = ['onboarded','profile','settings','location','days','recurringTasks','todoList','scratchpad','peakScore','celebratedLevel','celebratedBoxes'];
+var SYNC_KEYS = ['onboarded','profile','settings','location','days','recurringTasks','todoList','scratchpad','peakScore','celebratedLevel','celebratedBoxes','masjidTimes'];
 
 var sync = loadSyncMeta();          // {session, lastRemoteAt, dirty, lastSyncedAt}
 var syncTimer = null, syncBusy = false, applyingRemote = false;
@@ -2058,6 +2071,7 @@ function mergeData(newer, older){
   ['peakScore','celebratedLevel','celebratedBoxes'].forEach(k=>{ if(typeof older[k]==='number') out[k] = Math.max(out[k]||0, older[k]); });
   if(!out.scratchpad && older.scratchpad) out.scratchpad = older.scratchpad;
   out.onboarded = !!(out.onboarded || older.onboarded);
+  out.masjidTimes = Object.assign({}, older.masjidTimes||{}, out.masjidTimes||{});
   return out;
 }
 function applyRemote(data){
@@ -2188,6 +2202,153 @@ function renderStartSignIn(){
   document.getElementById('guest-btn').onclick = continueAsGuest;
   buildAuthForm(host, ()=>{ updateEntryButton(); if(state.onboarded) launchApp(); else goTo('personalize1'); });
 }
+// =================== Masjid timetable (paste from any AI) ===================
+// The user photographs their masjid's printed timetable, asks any AI to turn it into simple lines,
+// and pastes them here. Those exact times are then used for the dates they cover.
+function masjidPrompt(){
+  const y = new Date().getFullYear();
+  return `I'm sending you a photo of my mosque's prayer timetable. Turn it into plain text, one line per day, in exactly this format:
+
+YYYY-MM-DD, Fajr, Dhuhr, Asr, Maghrib, Isha
+
+Rules:
+- Use the prayer START (begins) times, not the Jama'ah / iqamah times.
+- Do not include Sunrise, Jumu'ah or any other column.
+- Use 24-hour times, e.g. 13:05 and 18:30.
+- If the timetable doesn't show the year, use ${y}.
+- Reply with only the lines, nothing else.
+
+Example line: ${y}-11-03, 05:31, 11:53, 14:08, 16:35, 18:02`;
+}
+const MONTHS3 = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+function parseDateToken(line){
+  let m;
+  if((m = line.match(/\b(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/))) return {y:+m[1], mo:+m[2], d:+m[3], rest: line.replace(m[0],' ')};
+  if((m = line.match(/\b(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})\b/))){ let y=+m[3]; if(y<100) y+=2000; return {y, mo:+m[2], d:+m[1], rest: line.replace(m[0],' ')}; }
+  if((m = line.match(/\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\.?\s*(\d{4})?/))){ const mo = MONTHS3.indexOf(m[2].slice(0,3).toLowerCase())+1; if(mo) return {y:m[3]?+m[3]:null, mo, d:+m[1], rest: line.replace(m[0],' ')}; }
+  if((m = line.match(/\b([A-Za-z]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?/))){ const mo = MONTHS3.indexOf(m[1].slice(0,3).toLowerCase())+1; if(mo) return {y:m[3]?+m[3]:null, mo, d:+m[2], rest: line.replace(m[0],' ')}; }
+  return null;
+}
+function toMin(hhmm){ const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
+function hhmmOf(mins){ return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); }
+// Turn pasted text into {dateKey: {fajr..isha}}. Forgiving about separators, 12-hour times and a stray Sunrise column.
+function parseMasjidTimetable(text){
+  const days = {}, bad = [];
+  const now = new Date();
+  text.split(/\r?\n/).forEach((raw, idx)=>{
+    const line = raw.trim(); if(!line) return;
+    if(!/\d{1,2}[:.]\d{2}/.test(line)) return;            // headings etc.
+    const dt = parseDateToken(line);
+    if(!dt){ bad.push(idx+1); return; }
+    let y = dt.y || now.getFullYear();
+    const times = [];
+    const re = /\b(\d{1,2})[:.](\d{2})\s*(am|pm)?/gi; let m;
+    while((m = re.exec(dt.rest))){
+      let h=+m[1], mi=+m[2]; const ap=(m[3]||'').toLowerCase();
+      if(mi>59 || h>23) continue;
+      if(ap==='pm' && h<12) h+=12; if(ap==='am' && h===12) h=0;
+      times.push({h, mi, ap});
+    }
+    let t = times;
+    if(t.length===6) t = [t[0], t[2], t[3], t[4], t[5]];   // Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha
+    if(t.length!==5){ bad.push(idx+1); return; }
+    // 12-hour timetables without am/pm: push afternoon prayers past noon
+    const fix = (x, minH)=> (!x.ap && x.h < minH) ? x.h+12 : x.h;
+    const vals = [
+      t[0].h*60+t[0].mi,
+      fix(t[1],10)*60+t[1].mi,
+      fix(t[2],12)*60+t[2].mi,
+      fix(t[3],12)*60+t[3].mi,
+      fix(t[4],12)*60+t[4].mi
+    ];
+    for(let i=1;i<5;i++){ if(vals[i] <= vals[i-1]){ bad.push(idx+1); return; } }
+    const d = new Date(y, dt.mo-1, dt.d);
+    if(isNaN(d) || d.getMonth()!==dt.mo-1){ bad.push(idx+1); return; }
+    days[dateKeyFromDate(d)] = { fajr:hhmmOf(vals[0]), dhuhr:hhmmOf(vals[1]), asr:hhmmOf(vals[2]), maghrib:hhmmOf(vals[3]), isha:hhmmOf(vals[4]) };
+  });
+  return { days, bad };
+}
+function masjidRange(){
+  const keys = Object.keys(state.masjidTimes||{}).sort();
+  return keys.length ? { first: keys[0], last: keys[keys.length-1], count: keys.length } : null;
+}
+function copyText(txt, onDone){
+  const fallback = ()=>{ const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} ta.remove(); onDone && onDone(); };
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>onDone && onDone(), fallback); return; } }catch(e){}
+  fallback();
+}
+function reloadTimesAfterMasjidChange(){
+  timingsCache = {}; sourceUsed = {};
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); renderSettings(); });
+}
+function renderMasjidSection(wrap){
+  const t = document.createElement('div'); t.className='section-title'; t.style.cssText='padding:0;margin-top:22px;'; t.textContent='Masjid timetable';
+  wrap.appendChild(t);
+  const box = document.createElement('div'); box.className='acct-box';
+  const r = masjidRange();
+  if(r){
+    const on = state.settings.useMasjid !== false;
+    box.innerHTML = `<div class="acct-email">${on ? 'Using' : 'Saved:'} your masjid's times</div>
+      <div class="sub">${fmtDayShort(r.first)} – ${fmtDayShort(r.last)} · ${r.count} days. Other dates use calculated times.</div>
+      <div class="data-btns" style="margin-top:10px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm" id="mt-add">Add another month</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="mt-toggle">${on ? 'Use calculated times instead' : 'Use masjid times'}</button>
+      </div>
+      <button type="button" class="notice-link acct-del" id="mt-del">Remove timetable</button>`;
+    box.querySelector('#mt-add').onclick = openMasjidImport;
+    box.querySelector('#mt-toggle').onclick = ()=>{ state.settings.useMasjid = !on; saveState(); reloadTimesAfterMasjidChange(); };
+    box.querySelector('#mt-del').onclick = ()=>{ const keep = state.masjidTimes; state.masjidTimes = {}; saveState(); reloadTimesAfterMasjidChange();
+      showUndoToast('Timetable removed', ()=>{ state.masjidTimes = keep; saveState(); reloadTimesAfterMasjidChange(); }); };
+  } else {
+    box.innerHTML = `<div class="sub" style="margin-bottom:10px;">Use your masjid's exact times. Take a photo of its printed timetable, and any AI app (ChatGPT, Claude, Gemini…) can turn it into text for Emta.</div>
+      <button type="button" class="btn btn-sm" id="mt-add">Add my masjid's timetable</button>`;
+    box.querySelector('#mt-add').onclick = openMasjidImport;
+  }
+  wrap.appendChild(box);
+}
+function openMasjidImport(){
+  if(document.getElementById('mt-import')) return;
+  const o = document.createElement('div'); o.id='mt-import'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card mt-card">
+    <div class="notice-title">Add your masjid's timetable</div>
+    <ol class="mt-steps">
+      <li><button type="button" class="btn btn-ghost btn-sm" id="mt-copy">Copy the AI prompt</button></li>
+      <li>Open any AI app, paste the prompt, and attach a photo of your timetable.</li>
+      <li>Copy what it replies and paste it here:</li>
+    </ol>
+    <textarea id="mt-text" class="brain-textarea mt-text" placeholder="2026-11-03, 05:31, 11:53, 14:08, 16:35, 18:02"></textarea>
+    <div class="slot-hint" id="mt-msg" style="margin-top:8px;"></div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="mt-save" disabled>Save timetable</button>
+      <button type="button" class="notice-link" id="mt-cancel">Cancel</button>
+    </div></div>`;
+  document.body.appendChild(o);
+  const ta = o.querySelector('#mt-text'), msg = o.querySelector('#mt-msg'), save = o.querySelector('#mt-save');
+  let parsed = null;
+  const check = ()=>{
+    parsed = parseMasjidTimetable(ta.value);
+    const keys = Object.keys(parsed.days).sort();
+    if(!ta.value.trim()){ msg.textContent=''; save.disabled = true; return; }
+    if(!keys.length){ msg.textContent = 'Couldn’t read any days yet. Each line needs a date and five times.'; save.disabled = true; return; }
+    const first = parsed.days[keys[0]];
+    msg.innerHTML = `Found <strong>${keys.length} day${keys.length>1?'s':''}</strong>: ${fmtDayShort(keys[0])} – ${fmtDayShort(keys[keys.length-1])}.<br>${fmtDayShort(keys[0])}: Fajr ${to12h(first.fajr)}, Dhuhr ${to12h(first.dhuhr)}, Asr ${to12h(first.asr)}, Maghrib ${to12h(first.maghrib)}, Isha ${to12h(first.isha)}`
+      + (parsed.bad.length ? `<br><span style="color:var(--terracotta)">${parsed.bad.length} line${parsed.bad.length>1?'s':''} couldn’t be read (line ${parsed.bad.slice(0,5).join(', ')}${parsed.bad.length>5?'…':''}) and will be skipped.</span>` : '');
+    save.disabled = false;
+  };
+  ta.addEventListener('input', check);
+  o.querySelector('#mt-copy').onclick = ()=>copyText(masjidPrompt(), ()=>{ o.querySelector('#mt-copy').textContent = 'Copied ✓'; });
+  o.querySelector('#mt-cancel').onclick = ()=>o.remove();
+  o.addEventListener('click', e=>{ if(e.target===o) o.remove(); });
+  save.onclick = ()=>{
+    if(!parsed || !Object.keys(parsed.days).length) return;
+    state.masjidTimes = Object.assign({}, state.masjidTimes||{}, parsed.days);
+    state.settings.useMasjid = true;
+    saveState(); o.remove(); reloadTimesAfterMasjidChange();
+    showInfoToast(`Saved ${Object.keys(parsed.days).length} days of masjid times`);
+  };
+}
+
 function renderSettings(){
   const container = document.getElementById('tab-settings'); container.innerHTML='';
   const wrap = document.createElement('div'); wrap.style.padding='4px 20px';
@@ -2311,6 +2472,7 @@ function renderSettings(){
   const mmHint = document.createElement('div'); mmHint.className='sub'; mmHint.style.marginTop='6px';
   mmHint.textContent = 'Type in today\'s times from your mosque and Emta picks the closest method and sets the adjustments for you.';
   wrap.appendChild(mmHint);
+  renderMasjidSection(wrap);
 
   const stData = document.createElement('div'); stData.className='section-title'; stData.style.cssText='padding:0;margin-top:22px;'; stData.textContent='Your data';
   wrap.appendChild(stData);
