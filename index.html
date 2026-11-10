@@ -50,6 +50,9 @@
   .btn:active{opacity:0.85;}
   .btn-ghost{background:transparent;color:var(--sage);border:1px solid var(--sand-line);}
   .btn-sm{padding:8px 14px;font-size:12.5px;width:auto;border-radius:8px;}
+  .sample-banner{border:1px dashed var(--sand-line);border-radius:12px;padding:12px 14px;margin:10px 0 12px;font-size:13px;color:var(--ink-soft);display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+  .city-results{margin-top:6px;}
+  .city-option{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--sand-line);border-radius:8px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);margin-top:6px;cursor:pointer;}
   .option{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--sand-line);border-radius:var(--radius-sm);padding:14px 16px;font-family:'Inter',sans-serif;font-size:14px;margin-bottom:10px;cursor:pointer;}
   .option.selected{border-color:var(--sage);background:var(--sage-soft);}
   .step-label{font-size:13px;color:var(--ink-soft);margin-bottom:8px;}
@@ -377,6 +380,17 @@
   </div>
 </div>
 
+<div id="location-screen" class="screen">
+  <div class="wrap" style="padding-top:60px;">
+    <div class="step-label">Last step</div>
+    <h2 class="step-title">Where do you pray?</h2>
+    <p class="sub">Location is off, so pick your city and Emta will work out your prayer times. You can change this anytime in Settings.</p>
+    <div id="onb-city"></div>
+    <button class="btn" style="margin-top:14px;" onclick="tryLocationAgain()">Use my location instead</button>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="launchApp()">Skip for now (uses London)</button>
+  </div>
+</div>
+
 <div id="app" class="screen">
   <header class="appbar">
     <div class="title" id="app-title">Today</div>
@@ -617,9 +631,22 @@ function requestLocationThenLaunch(){
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       pos=>{ state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,label:'Your location',isDefault:false}; saveState(); launchApp(); },
-      ()=>{ launchApp(); }, {timeout:4000}
+      ()=>{ showLocationScreen(); }, {timeout:6000}
     );
-  } else launchApp();
+  } else showLocationScreen();
+}
+function showLocationScreen(){
+  const host = document.getElementById('onb-city');
+  host.innerHTML=''; host.appendChild(buildCitySearch(()=>{ launchApp(); }));
+  goTo('location-screen');
+}
+function tryLocationAgain(){
+  if(!navigator.geolocation){ return; }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ state.location={lat:pos.coords.latitude,lng:pos.coords.longitude,label:'Your location',isDefault:false}; saveState(); launchApp(); },
+    ()=>{ const h=document.getElementById('onb-city'); let n=h.querySelector('.loc-denied'); if(!n){ n=document.createElement('div'); n.className='status-line loc-denied'; h.prepend(n);} n.textContent='Location is still blocked — search your city above, or allow location in your phone settings.'; },
+    {timeout:8000, enableHighAccuracy:true}
+  );
 }
 function refreshLocation(statusEl){
   if(!navigator.geolocation){ statusEl.textContent='Location isn\'t available on this device/browser.'; return; }
@@ -789,9 +816,58 @@ function calcPrayerTimes(y, m, d, lat, lng, method, school, latRule){
   }
   const adj = P.adj || {};
   // UTC hours -> local "HH:MM" using this device's offset on that date (handles BST/GMT)
-  const offsetH = -new Date(y, m-1, d, 12).getTimezoneOffset()/60;
+  const offsetH = tzOffsetHours(state.location && state.location.tz, y, m, d);
   const fmt = (t, extraMin)=>{ let mins = Math.round((t + offsetH)*60 + (extraMin||0)); mins = ((mins % 1440)+1440)%1440; return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0'); };
   return { fajr:fmt(fajr), sunrise:fmt(sunrise), dhuhr:fmt(noonT, adj.dhuhr), asr:fmt(asrT), maghrib:fmt(maghrib, adj.maghrib), isha:fmt(isha) };
+}
+
+// Hours ahead of UTC at midday on that date: the searched city's timezone if one is set, else this device's.
+function tzOffsetHours(tz, y, m, d){
+  if(tz){
+    try{
+      const utc = Date.UTC(y, m-1, d, 12);
+      const parts = {}; new Intl.DateTimeFormat('en-GB',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(utc)).forEach(p=>parts[p.type]=p.value);
+      const local = Date.UTC(+parts.year, +parts.month-1, +parts.day, +parts.hour%24, +parts.minute);
+      return Math.round((local-utc)/60000)/60;
+    }catch(e){}
+  }
+  return -new Date(y, m-1, d, 12).getTimezoneOffset()/60;
+}
+// City search (Open-Meteo geocoding: free, no key). Builds a small search box; onPick runs after a city is saved.
+function buildCitySearch(onPick){
+  const box = document.createElement('div'); box.className='city-search';
+  const row = document.createElement('div'); row.style.cssText='display:flex;gap:8px;margin-top:10px;';
+  const inp = document.createElement('input'); inp.type='search'; inp.placeholder='Search your city, e.g. Birmingham'; inp.setAttribute('aria-label','Search your city');
+  inp.style.cssText='flex:1;min-width:0;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:14px;background:var(--surface);color:var(--ink);';
+  const go = document.createElement('button'); go.className='btn btn-ghost btn-sm'; go.textContent='Search';
+  row.appendChild(inp); row.appendChild(go); box.appendChild(row);
+  const list = document.createElement('div'); list.className='city-results'; box.appendChild(list);
+  const msg = (t)=>{ list.innerHTML=''; const d=document.createElement('div'); d.className='status-line'; d.textContent=t; list.appendChild(d); };
+  const search = ()=>{
+    const q = inp.value.trim(); if(q.length<2){ msg('Type at least 2 letters.'); return; }
+    msg('Searching…');
+    fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name='+encodeURIComponent(q))
+      .then(r=>r.json()).then(j=>{
+        const res = (j && j.results) || [];
+        if(!res.length){ msg('No places found — check the spelling or try a nearby bigger town.'); return; }
+        list.innerHTML='';
+        res.forEach(c=>{
+          const b = document.createElement('button'); b.type='button'; b.className='city-option';
+          const label = [c.name, c.admin1 && c.admin1!==c.name ? c.admin1 : '', c.country].filter(Boolean).join(', ');
+          b.textContent = label;
+          b.onclick = ()=>{
+            state.location = {lat:c.latitude, lng:c.longitude, label:label, tz:c.timezone||'', isDefault:false};
+            saveState(); timingsCache = {}; if(typeof sourceUsed==='object') sourceUsed = {};
+            msg('Saved: '+label);
+            if(onPick) onPick(label);
+          };
+          list.appendChild(b);
+        });
+      }).catch(()=>msg('Couldn\'t search right now — check your internet connection.'));
+  };
+  go.onclick = search;
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); search(); } });
+  return box;
 }
 
 // Times for one date with a specific method / Asr school, calculated on the phone.
@@ -1031,6 +1107,18 @@ function relativeLabel(){
   return viewDate.toLocaleDateString('en-GB',{weekday:'long'});
 }
 
+const EXAMPLE_DAY = [
+  ['fajr','Read Qur’an',15], ['fajr','Revise flashcards',30],
+  ['dhuhr','Lectures / work',120], ['dhuhr','Lunch',30],
+  ['asr','Gym or a walk',45], ['asr','Assignment',60],
+  ['maghrib','Dinner with family',45],
+  ['isha','Plan tomorrow',10], ['isha','Read before bed',20]
+];
+function addExampleDay(day){
+  const flat = !state.settings.blockMode;
+  EXAMPLE_DAY.forEach(([b,text,mins])=>day.tasks.push({id:newId(), block: flat?'none':b, text, minutes:mins, startTime:null, done:false, sample:true}));
+  state.exampleDismissed = true;
+}
 function renderToday(){
   const key = viewKey();
   const day = ensureDay(key);
@@ -1058,6 +1146,24 @@ function renderToday(){
     const cd = document.createElement('div'); cd.className='countdown'; cd.id='countdown-el';
     container.appendChild(cd);
     updateCountdownDisplay();
+  }
+
+  const sampleCount = day.tasks.filter(tk=>tk.sample).length;
+  if(sampleCount){
+    const sb = document.createElement('div'); sb.className='sample-banner';
+    sb.innerHTML = `<span>These are example tasks to show how a day can look. Tick, move or edit them to try things out.</span>`;
+    const cb = document.createElement('button'); cb.className='btn btn-ghost btn-sm'; cb.textContent='Clear examples';
+    cb.onclick = ()=>{ day.tasks = day.tasks.filter(tk=>!tk.sample); saveState(); renderToday(); };
+    sb.appendChild(cb); container.appendChild(sb);
+  } else if(day.tasks.length===0 && !state.exampleDismissed){
+    const eb = document.createElement('div'); eb.className='sample-banner';
+    eb.innerHTML = `<span>New here? See how a day planned around salah can look.</span>`;
+    const b1 = document.createElement('button'); b1.className='btn btn-sm'; b1.textContent='Show me an example day';
+    b1.onclick = ()=>{ addExampleDay(day); saveState(); renderToday(); };
+    const b2 = document.createElement('button'); b2.className='btn btn-ghost btn-sm'; b2.textContent='No thanks';
+    b2.onclick = ()=>{ state.exampleDismissed = true; saveState(); renderToday(); };
+    const br = document.createElement('div'); br.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;'; br.appendChild(b1); br.appendChild(b2);
+    eb.appendChild(br); container.appendChild(eb);
   }
 
   const blockWrap = document.createElement('div'); blockWrap.className='block-wrap';
@@ -1640,7 +1746,7 @@ function dayScore(key){
   let n = 0;
   if(day){
     n += PRAYER_ORDER.filter(p=>day.prayers[p]).length;
-    n += day.tasks.filter(t=>t.done).length;
+    n += day.tasks.filter(t=>t.done && !t.sample).length;
   }
   n += state.todoList.filter(t=>t.type!=='divider' && t.done && t.doneAt===key).length;
   return n;
@@ -1649,7 +1755,7 @@ function lifetimeScore(){
   let n = 0;
   Object.keys(state.days).forEach(k=>{
     const day = state.days[k];
-    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length + day.tasks.filter(t=>t.done).length;
+    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length + day.tasks.filter(t=>t.done && !t.sample).length;
   });
   n += state.todoList.filter(t=>t.type!=='divider' && t.done).length;
   return n;
@@ -1741,7 +1847,7 @@ function windowStats(keys, cutoff){
     if(!day) return;
     PRAYER_ORDER.forEach(p=>{ if(day.prayers[p]){ s.prayers++; s.perPrayer[p]++; } });
     s.tasksPlanned += day.tasks.length;
-    s.tasksDone += day.tasks.filter(t=>t.done).length;
+    s.tasksDone += day.tasks.filter(t=>t.done && !t.sample).length;
   });
   s.planned = 5*s.days + s.tasksPlanned;
   s.done = s.prayers + s.tasksDone;
@@ -2393,7 +2499,9 @@ function renderSettings(){
   const isDefault = state.location.isDefault !== false && (state.location.label||'').includes('default');
   const locLabel = isDefault
     ? 'Using default London coordinates — not your real location'
-    : `Using your location (${state.location.lat.toFixed(2)}, ${state.location.lng.toFixed(2)})`;
+    : (state.location.label && state.location.label!=='Your location'
+        ? `Using ${state.location.label}`
+        : `Using your location (${state.location.lat.toFixed(2)}, ${state.location.lng.toFixed(2)})`);
   const locStatus = document.createElement('div'); locStatus.className='status-line'; locStatus.style.marginTop='0';
   locStatus.textContent = locLabel;
   locWrap.appendChild(locStatus);
@@ -2404,6 +2512,11 @@ function renderSettings(){
   locBtn.onclick = ()=>{ refreshLocation(locResult); };
   locWrap.appendChild(locBtn);
   locWrap.appendChild(locResult);
+  const orCity = document.createElement('div'); orCity.className='sub'; orCity.style.margin='12px 0 0'; orCity.textContent='Or choose a city instead (handy if location is off):';
+  locWrap.appendChild(orCity);
+  locWrap.appendChild(buildCitySearch(()=>{
+    Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); renderSettings(); });
+  }));
 
   const selStyle = 'width:100%;padding:9px 10px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);';
   const reloadTimes = ()=>{ timingsCache = {}; sourceUsed = {}; return Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(()=>{ renderToday(); }); };
