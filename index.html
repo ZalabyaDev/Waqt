@@ -50,6 +50,12 @@
   .btn:active{opacity:0.85;}
   .btn-ghost{background:transparent;color:var(--sage);border:1px solid var(--sand-line);}
   .btn-sm{padding:8px 14px;font-size:12.5px;width:auto;border-radius:8px;}
+  .plus-card{border:1px solid var(--sand-line);background:var(--sand);border-radius:var(--radius);padding:16px;margin-top:24px;}
+  .plus-badge{display:inline-block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--terracotta);border-radius:999px;padding:3px 9px;margin-bottom:8px;}
+  .plus-title{font-family:'Lora',serif;font-size:18px;margin-bottom:4px;}
+  .plus-sub{font-size:13px;color:var(--ink-soft);}
+  .plus-list{margin:8px 0 10px;padding-left:18px;font-size:13px;line-height:1.6;}
+  .plus-free{font-size:12px;color:var(--ink-soft);margin-bottom:12px;}
   .sample-banner{border:1px dashed var(--sand-line);border-radius:12px;padding:12px 14px;margin:10px 0 12px;font-size:13px;color:var(--ink-soft);display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
   .city-results{margin-top:6px;}
   .city-option{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--sand-line);border-radius:8px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);margin-top:6px;cursor:pointer;}
@@ -506,6 +512,7 @@ function loadState(){
     if(typeof merged.scratchpad !== 'string') merged.scratchpad = '';
     if(typeof merged.scratchDrawing !== 'string') merged.scratchDrawing = '';
     if(typeof merged.peakScore !== 'number') merged.peakScore = 0;
+    merged._needsLegacy = (typeof merged.legacyBoxes !== 'number');
     if(typeof merged.laterCollapsed !== 'boolean') merged.laterCollapsed = false;
     return merged;
   }catch(e){ return defaultState(); }
@@ -702,6 +709,7 @@ function checkNewDay(){
 }
 function launchApp(){
   goTo('app');
+  if(state._needsLegacy || typeof state.legacyBoxes !== 'number'){ carryOverLegacyBoxes(); delete state._needsLegacy; saveState(); }
   lastSeenDay = todayKey();
   if(typeof state.celebratedLevel !== 'number'){ const sc = currentScore(); state.celebratedLevel = levelInfo(sc).level; state.celebratedBoxes = BOX_MILESTONES.filter(m=>m<=sc).pop()||0; saveState(); }
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkNewDay(); });
@@ -1020,7 +1028,8 @@ function parseTimeOn(dateObj, hhmm){
 // ---- first-use tips: one short card per tab, shown once ----
 const TIPS = {
   today: { title:'Your day, between prayers', lines:[
-    'Your day is split into blocks after each prayer. Tap the circle to tick a prayer.',
+    'Your day is split into blocks after each prayer. Add your tasks to the block they belong in.',
+    'The circle next to each prayer is an optional log just for you. It doesn’t affect your progress.',
     'Tap "+ add task" inside any block. Give it a duration or a time slot, and tick "Repeat" for things like lectures or the gym.',
     'Drag the ⋮⋮ handle to move a task, even into a different prayer block.',
     'Tap the date at the top to jump to any day.'] },
@@ -1029,7 +1038,8 @@ const TIPS = {
     'Use "+ divider" to set things aside for later. Tap a divider to fold it, or ✎ to rename it.',
     'Head full? Open the brain dump, write freely, and turn it into list items.'] },
   progress: { title:'Every tick counts', lines:[
-    'Each prayer, task and to-do you tick is one box. Boxes take you up levels.',
+    'Each task and to-do you tick is one box. Boxes take you up levels.',
+    'Your prayer log is kept separate and never counts for or against you.',
     'Use the arrows to compare any week with the one before.'] },
   settings: { title:'Make the times match your masjid', lines:[
     'Pick your calculation method and Asr, or use "Match my masjid" to set them from your mosque’s timetable.',
@@ -1173,8 +1183,9 @@ function renderToday(){
     const done = day.prayers[pid];
 
     const row = document.createElement('div'); row.className='prayer-row';
-    row.innerHTML = `<div class="check ${done?'done':''}">${done?'&#10003;':''}</div><div class="name">${PRAYER_LABEL[pid]}</div><div class="time">${to12h(time)}</div>`;
-    row.querySelector('.check').onclick = ()=>{ day.prayers[pid]=!day.prayers[pid]; saveState(); renderToday(); if(day.prayers[pid]) celebrateIfNew(); };
+    const track = trackingPrayers();
+    row.innerHTML = `${track?`<div class="check ${done?'done':''}" role="checkbox" aria-checked="${done?'true':'false'}" aria-label="${PRAYER_LABEL[pid]} prayed">${done?'&#10003;':''}</div>`:''}<div class="name">${PRAYER_LABEL[pid]}</div><div class="time">${to12h(time)}</div>`;
+    if(track) row.querySelector('.check').onclick = ()=>{ day.prayers[pid]=!day.prayers[pid]; saveState(); renderToday(); };
     blockWrap.appendChild(row);
 
     if(state.settings.blockMode){
@@ -1211,8 +1222,10 @@ function renderToday(){
 
   const stats = document.createElement('div'); stats.className='stat-row';
   const prayedCount = PRAYER_ORDER.filter(p=>day.prayers[p]).length;
-  stats.innerHTML = `<div class="stat-card"><div class="num">${prayedCount}/5</div><div class="lbl">prayed</div></div>
-    <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>`;
+  const realTasks = day.tasks.filter(tk=>!tk.sample);
+  stats.innerHTML = `<div class="stat-card"><div class="num">${realTasks.filter(tk=>tk.done).length}/${realTasks.length}</div><div class="lbl">tasks done</div></div>
+    <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>
+    ${trackingPrayers()?`<div class="stat-card"><div class="num">${prayedCount}/5</div><div class="lbl">prayers logged</div></div>`:''}`;
   container.appendChild(stats);
 
   const mNote = document.createElement('div'); mNote.className='sub'; mNote.style.cssText='text-align:center;padding:2px 24px 14px;font-size:11px;';
@@ -1721,11 +1734,15 @@ function updateCountdownDisplay(){
 }
 
 function renderBanner(container, day, t, now){
-  if(!state.settings.remindersOn) return;
+  if(!state.settings.remindersOn || !trackingPrayers()) return;
+  // Only nudge people who actually use the prayer log (ticked at least one prayer in the last week). Everyone else is left in peace.
+  let usesLog = false;
+  for(let i=0;i<7 && !usesLog;i++){ const dd = new Date(); dd.setDate(dd.getDate()-i); const rec = state.days[dateKeyFromDate(dd)]; if(rec && PRAYER_ORDER.some(p=>rec.prayers[p])) usesLog = true; }
+  if(!usesLog) return;
   const unmarked = PRAYER_ORDER.filter(p=> !day.prayers[p] && now > new Date(parseTimeOn(viewDate,t[p]).getTime()+20*60000));
   if(unmarked.length===0) return;
   const banner = document.createElement('div'); banner.className='banner';
-  banner.innerHTML = `Have you prayed ${unmarked.map(p=>PRAYER_LABEL[p]).join(', ')}? Tick it off so you don't lose track.`;
+  banner.innerHTML = `Have you prayed ${unmarked.map(p=>PRAYER_LABEL[p]).join(', ')}? Tick it off to keep your prayer log up to date.`;
   const insertAfter = container.querySelector('.countdown') || container.querySelector('.date-nav');
   insertAfter.insertAdjacentElement('afterend', banner);
 }
@@ -1740,25 +1757,25 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; 
 
 function parseKey(key){ const [y,m,d]=key.split('-').map(Number); return new Date(y,m-1,d); }
 
-// One "box" = a prayer ticked, a day task done, or a to-do item done.
+// One "box" = a day task done or a to-do item done. Prayers are NOT boxes: the prayer log is optional and
+// separate, so someone who prays but doesn't tick it off never loses progress.
 function dayScore(key){
   const day = state.days[key];
   let n = 0;
-  if(day){
-    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length;
-    n += day.tasks.filter(t=>t.done && !t.sample).length;
-  }
+  if(day) n += day.tasks.filter(t=>t.done && !t.sample).length;
   n += state.todoList.filter(t=>t.type!=='divider' && t.done && t.doneAt===key).length;
   return n;
 }
-function lifetimeScore(){
+function tasksOnlyScore(){
   let n = 0;
-  Object.keys(state.days).forEach(k=>{
-    const day = state.days[k];
-    n += PRAYER_ORDER.filter(p=>day.prayers[p]).length + day.tasks.filter(t=>t.done && !t.sample).length;
-  });
+  Object.keys(state.days).forEach(k=>{ n += state.days[k].tasks.filter(t=>t.done && !t.sample).length; });
   n += state.todoList.filter(t=>t.type!=='divider' && t.done).length;
   return n;
+}
+// legacyBoxes = boxes earned back when prayer ticks counted. Frozen, so nobody dropped a level when that changed.
+function lifetimeScore(){ return tasksOnlyScore() + (state.legacyBoxes||0); }
+function carryOverLegacyBoxes(){
+  state.legacyBoxes = Math.max(state.legacyBoxes||0, (state.peakScore||0) - tasksOnlyScore(), 0);
 }
 // Levels are driven by the highest total ever reached, so deleting an old ticked item never drops you a level.
 function currentScore(){
@@ -1830,14 +1847,14 @@ function weekLabel(offset){
 function computeStreak(){
   let streak=0, d=new Date();
   const today = state.days[dateKeyFromDate(d)];
-  // today doesn't break the streak just because it isn't finished yet
-  if(!(today && PRAYER_ORDER.every(p=>today.prayers[p]))) d.setDate(d.getDate()-1);
-  while(true){
-    const day = state.days[dateKeyFromDate(d)];
-    if(day && PRAYER_ORDER.every(p=>day.prayers[p])){ streak++; d.setDate(d.getDate()-1); } else break;
+  // a day counts once at least one task or to-do is ticked; today doesn't break the streak just because nothing is ticked yet
+  if(dayScore(dateKeyFromDate(d))===0) d.setDate(d.getDate()-1);
+  for(let i=0;i<3650;i++){
+    if(dayScore(dateKeyFromDate(d))>0){ streak++; d.setDate(d.getDate()-1); } else break;
   }
   return streak;
 }
+function trackingPrayers(){ return state.settings.trackPrayers !== false; }
 
 function windowStats(keys, cutoff){
   const s = { prayers:0, perPrayer:{}, planned:0, done:0, tasksPlanned:0, tasksDone:0, days:cutoff+1 };
@@ -1846,11 +1863,11 @@ function windowStats(keys, cutoff){
     const day = state.days[k];
     if(!day) return;
     PRAYER_ORDER.forEach(p=>{ if(day.prayers[p]){ s.prayers++; s.perPrayer[p]++; } });
-    s.tasksPlanned += day.tasks.length;
+    s.tasksPlanned += day.tasks.filter(t=>!t.sample).length;
     s.tasksDone += day.tasks.filter(t=>t.done && !t.sample).length;
   });
-  s.planned = 5*s.days + s.tasksPlanned;
-  s.done = s.prayers + s.tasksDone;
+  s.planned = s.tasksPlanned;
+  s.done = s.tasksDone;
   return s;
 }
 function fmtShort(key){ return parseKey(key).toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
@@ -1902,8 +1919,8 @@ function renderProgress(){
       <div class="hb-track"><div class="hb-fill" style="width:${max ? Math.round(val/max*100) : 0}%"></div></div>
       <div class="hb-val">${text}</div>
     </div>`;
-  const prayerBars = PRAYER_ORDER.map(p=>hbar(PRAYER_LABEL[p], st.perPrayer[p], st.days, `${st.perPrayer[p]}/${st.days}`)).join('')
-    + hbar('Tasks', st.tasksDone, st.tasksPlanned, `${st.tasksDone}/${st.tasksPlanned}`);
+  const prayerBars = PRAYER_ORDER.map(p=>hbar(PRAYER_LABEL[p], st.perPrayer[p], st.days, `${st.perPrayer[p]}/${st.days}`)).join('');
+  const todosDoneWk = keysA.slice(0,cutoff+1).reduce((a,k)=>a + state.todoList.filter(t=>t.type!=='divider' && t.done && t.doneAt===k).length, 0);
 
   const maxDay = Math.max(1, ...valsA, ...valsB);
   const colsHtml = dayNames.map((n,i)=>{
@@ -1958,18 +1975,13 @@ function renderProgress(){
 
       <div class="psec ring-sec">
         ${ringHtml}
-        <div class="ring-cap"><strong>${st.done}/${st.planned}</strong> ticked<div class="sub">${A===0?'prayers and tasks so far':'prayers and tasks'}</div></div>
+        <div class="ring-cap"><strong>${st.done}/${st.planned}</strong> tasks done<div class="sub">${st.planned ? (A===0?'of the tasks you planned so far':'of the tasks you planned') : 'no tasks planned yet'}${todosDoneWk?` · plus ${todosDoneWk} to-do${todosDoneWk===1?'':'s'}`:''}</div></div>
       </div>
 
       <div class="psec">
         <div class="psec-title">${weekLabel(A)} vs ${weekLabel(B).toLowerCase()}</div>
         <div class="cmp">${bar2(sumA,'cur',weekLabel(A))}${bar2(sumB,'prev',weekLabel(B))}</div>
         <div class="wk-summary">${summary}</div>
-      </div>
-
-      <div class="psec">
-        <div class="psec-title">Prayers and tasks</div>
-        ${prayerBars}
       </div>
 
       <div class="psec">
@@ -1981,15 +1993,20 @@ function renderProgress(){
 
     <div class="stat-row" style="padding:0;margin:0 0 14px;">
       <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>
-      <div class="stat-card"><div class="num">${prayersThisWeek}/35</div><div class="lbl">prayers this week</div></div>
+      <div class="stat-card"><div class="num">${weekTotal(0)}</div><div class="lbl">ticked this week</div></div>
       <div class="stat-card"><div class="num">${best}</div><div class="lbl">best week</div></div>
     </div>
 
     <div class="pcard">
       <div class="pcard-title">Boxes ticked per week</div>
       <div class="wk-chart">${trendHtml}</div>
-      <div class="wk-foot">Week commencing (Mon). Counts prayers, day tasks and to-do items.</div>
+      <div class="wk-foot">Week commencing (Mon). Counts day tasks and to-do items.</div>
     </div>
+    ${trackingPrayers() ? `<div class="pcard">
+      <div class="pcard-title">Prayer log · ${weekLabel(A).toLowerCase()}</div>
+      ${prayerBars}
+      <div class="wk-foot">${A===0?`${prayersThisWeek}/35 logged this week. `:''}Optional and just for you. It doesn’t affect your level or streak, so a prayer you didn’t tick never counts against you. You can hide it in Settings.</div>
+    </div>` : ''}
   </div>`;
 
   document.getElementById('wk-prev').onclick = ()=>{ progressWeekOffset++; renderProgress(); };
@@ -2002,7 +2019,7 @@ function renderProgress(){
 var SB_URL = 'https://klofhwqotycgjkrquxiz.supabase.co';
 var SB_KEY = 'sb_publishable_mkwwaqz1excRDVZHnb4NCQ_T0Fg7r-J';   // publishable key: designed to live in the app
 var SYNC_STORE = 'waqtSync';                                       // kept apart from the main data so backups never contain login tokens
-var SYNC_KEYS = ['onboarded','profile','settings','location','days','recurringTasks','todoList','scratchpad','peakScore','celebratedLevel','celebratedBoxes','masjidTimes'];
+var SYNC_KEYS = ['onboarded','profile','settings','location','days','recurringTasks','todoList','scratchpad','peakScore','legacyBoxes','celebratedLevel','celebratedBoxes','masjidTimes'];
 
 var sync = loadSyncMeta();          // {session, lastRemoteAt, dirty, lastSyncedAt}
 var syncTimer = null, syncBusy = false, applyingRemote = false;
@@ -2174,7 +2191,7 @@ function mergeData(newer, older){
   (older.todoList||[]).forEach(x=>{ if(!tIds.has(x.id)) (out.todoList = out.todoList||[]).push(x); });
   const rIds = new Set((out.recurringTasks||[]).map(x=>x.id));
   (older.recurringTasks||[]).forEach(x=>{ if(!rIds.has(x.id)) (out.recurringTasks = out.recurringTasks||[]).push(x); });
-  ['peakScore','celebratedLevel','celebratedBoxes'].forEach(k=>{ if(typeof older[k]==='number') out[k] = Math.max(out[k]||0, older[k]); });
+  ['peakScore','legacyBoxes','celebratedLevel','celebratedBoxes'].forEach(k=>{ if(typeof older[k]==='number') out[k] = Math.max(out[k]||0, older[k]); });
   if(!out.scratchpad && older.scratchpad) out.scratchpad = older.scratchpad;
   out.onboarded = !!(out.onboarded || older.onboarded);
   out.masjidTimes = Object.assign({}, older.masjidTimes||{}, out.masjidTimes||{});
@@ -2185,6 +2202,7 @@ function applyRemote(data){
   try{
     SYNC_KEYS.forEach(k=>{ if(data[k]!==undefined) state[k] = data[k]; });
     state.settings = Object.assign(defaultState().settings, data.settings||{});
+    if(typeof data.legacyBoxes !== 'number') carryOverLegacyBoxes();   // data from before prayers stopped counting
     state._modifiedAt = data._modifiedAt || Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){} finally { applyingRemote = false; }
@@ -2462,7 +2480,8 @@ function renderSettings(){
 
   wrap.appendChild(settingRow('Split day by prayer times','Group tasks into blocks between prayers instead of a flat list', state.settings.blockMode, v=>{state.settings.blockMode=v; saveState(); renderToday();}));
   wrap.appendChild(settingRow('Fade past blocks','Dim blocks whose prayer window has already passed', state.settings.fadePast, v=>{state.settings.fadePast=v; saveState(); renderToday();}));
-  wrap.appendChild(settingRow('Prayer reminders','Show a gentle nudge if a prayer hasn\'t been ticked off', state.settings.remindersOn, v=>{state.settings.remindersOn=v; saveState(); renderToday();}));
+  wrap.appendChild(settingRow('Prayer log','Optional. Tick each prayer to keep a private record. It never affects your progress', trackingPrayers(), v=>{state.settings.trackPrayers=v; saveState(); renderToday(); renderSettings();}));
+  if(trackingPrayers()) wrap.appendChild(settingRow('Prayer log nudge','If you use the log, show a gentle nudge on Today when a prayer hasn\'t been ticked off', state.settings.remindersOn, v=>{state.settings.remindersOn=v; saveState(); renderToday();}));
   wrap.appendChild(settingRow('Next prayer countdown','Show a live countdown to the next prayer on Today', state.settings.showCountdown, v=>{state.settings.showCountdown=v; saveState(); renderToday();}));
   wrap.appendChild(settingRow('Dark mode','Easier on the eyes before Fajr or after Isha', state.settings.darkMode, v=>{state.settings.darkMode=v; saveState(); applyTheme();}));
   wrap.appendChild(settingRow('Show tips again','Bring back the short guide on each tab', false, v=>{ if(v){ state.seenTips = {}; saveState(); showInfoToast('Tips will show again on each tab'); setTimeout(renderSettings, 300); } }));
@@ -2548,43 +2567,25 @@ function renderSettings(){
   mkSelect('Asr calculation', [[0,'Standard (Shafi\'i, Maliki, Hanbali)'],[1,'Hanafi (later Asr)']], state.settings.asrSchool?1:0, v=>{ state.settings.asrSchool=v; reloadAll(); });
   mkSelect('Far-north / far-south locations', [[0,'Automatic'],[1,'Middle of the night'],[2,'One-seventh of the night'],[3,'Angle-based']], state.settings.latRule||0, v=>{ state.settings.latRule=v; reloadAll(); });
   const calcNote = document.createElement('div'); calcNote.className='sub'; calcNote.style.marginTop='10px';
-  calcNote.textContent = 'Times are calculated on your phone, so they work offline. They can differ by a few minutes from your local masjid — use Match my masjid or the adjustments below.';
+  calcNote.textContent = 'Times are calculated on your phone, so they work offline. They can differ by a few minutes from your local masjid — use Adjust or Match my masjid below.';
   locWrap.appendChild(calcNote);
   wrap.appendChild(locWrap);
 
-  const adjLabel = document.createElement('div'); adjLabel.className='sub'; adjLabel.style.margin='18px 0 6px';
-  adjLabel.textContent = 'Adjust prayer times (match your local masjid)';
-  wrap.appendChild(adjLabel);
-  const adjWrap = document.createElement('div');
-  PRAYER_ORDER.forEach(p=>{
-    const cur = (state.settings.adjustments && state.settings.adjustments[p]) || 0;
-    const row = document.createElement('div'); row.className='setting-row';
-    row.innerHTML = `<div class="label">${PRAYER_LABEL[p]}</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#8722;</button>
-        <span style="font-size:13px;min-width:52px;text-align:center;">${cur>0?'+':''}${cur} min</span>
-        <button type="button" class="ticon" style="border:1px solid var(--sand-line);border-radius:8px;width:28px;height:28px;">&#43;</button>
-      </div>`;
-    const buttons = row.querySelectorAll('button');
-    buttons[0].onclick = ()=>{
-      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
-      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) - 1;
-      saveState(); renderSettings(); renderToday();
-    };
-    buttons[1].onclick = ()=>{
-      if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
-      state.settings.adjustments[p] = (state.settings.adjustments[p]||0) + 1;
-      saveState(); renderSettings(); renderToday();
-    };
-    adjWrap.appendChild(row);
-  });
-  wrap.appendChild(adjWrap);
-  const mmBtn = document.createElement('button'); mmBtn.type='button'; mmBtn.className='btn btn-ghost'; mmBtn.style.marginTop='12px'; mmBtn.textContent='Match my masjid';
+  // Compact: one row with a summary; the +/- controls live in their own sheet.
+  const adjRow = document.createElement('div'); adjRow.className='setting-row'; adjRow.style.marginTop='10px';
+  const adjNow = state.settings.adjustments || {};
+  const adjChanged = PRAYER_ORDER.filter(p=>adjNow[p]);
+  adjRow.innerHTML = `<div><div class="label">Adjust prayer times</div><div class="sub">${adjChanged.length ? adjChanged.map(p=>`${PRAYER_LABEL[p]} ${adjNow[p]>0?'+':'−'}${Math.abs(adjNow[p])}`).join(', ')+' min' : 'No changes'}</div></div>`;
+  const adjBtn = document.createElement('button'); adjBtn.type='button'; adjBtn.className='btn btn-ghost btn-sm'; adjBtn.textContent='Adjust';
+  adjBtn.onclick = openAdjustTimes;
+  adjRow.appendChild(adjBtn);
+  wrap.appendChild(adjRow);
+  const mmRow = document.createElement('div'); mmRow.className='setting-row';
+  mmRow.innerHTML = `<div><div class="label">Match my masjid</div><div class="sub">Type in today's times from your mosque and Emta sets everything for you</div></div>`;
+  const mmBtn = document.createElement('button'); mmBtn.type='button'; mmBtn.className='btn btn-ghost btn-sm'; mmBtn.textContent='Match';
   mmBtn.onclick = openMatchMasjid;
-  wrap.appendChild(mmBtn);
-  const mmHint = document.createElement('div'); mmHint.className='sub'; mmHint.style.marginTop='6px';
-  mmHint.textContent = 'Type in today\'s times from your mosque and Emta picks the closest method and sets the adjustments for you.';
-  wrap.appendChild(mmHint);
+  mmRow.appendChild(mmBtn);
+  wrap.appendChild(mmRow);
   renderMasjidSection(wrap);
 
   const stData = document.createElement('div'); stData.className='section-title'; stData.style.cssText='padding:0;margin-top:22px;'; stData.textContent='Your data';
@@ -2639,8 +2640,46 @@ function renderSettings(){
   eraseBtn.onclick = openEraseDevice;
   dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine); dataWrap.appendChild(eraseBtn);
   wrap.appendChild(dataWrap);
+  renderPlusAndFeedback(wrap);
 
   container.appendChild(wrap);
+}
+function openAdjustTimes(){
+  if(document.getElementById('adj-sheet')) return;
+  if(!state.settings.adjustments) state.settings.adjustments={fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0};
+  const o = document.createElement('div'); o.id='adj-sheet'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  const key = dateKeyFromDate(viewDate);
+  const usingMasjid = sourceUsed[key]==='masjid';
+  const draw = ()=>{
+    const adj = state.settings.adjustments;
+    const raw = timingsCache[key];
+    o.innerHTML = `<div class="notice-card">
+      <div class="notice-title">Adjust prayer times</div>
+      <div class="notice-body"><p style="margin:0 0 6px;">Add or take away minutes so each time matches your masjid.</p>
+      ${usingMasjid ? '<p style="margin:0 0 6px;color:var(--terracotta);">Today is using your masjid\u2019s own timetable, so these changes only apply on days without it.</p>' : ''}</div>
+      ${PRAYER_ORDER.map(p=>{ const v=adj[p]||0; const t = raw && raw[p] ? to12h(shiftTime(raw[p], v)) : '';
+        return `<div class="setting-row" style="padding:9px 0;">
+          <div><div class="label">${PRAYER_LABEL[p]}</div><div class="sub">${t}</div></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" class="ticon adj-minus" data-p="${p}" aria-label="${PRAYER_LABEL[p]} one minute earlier" style="border:1px solid var(--sand-line);border-radius:8px;width:34px;height:34px;">&#8722;</button>
+            <span style="font-size:13px;min-width:52px;text-align:center;" aria-live="polite">${v>0?'+':v<0?'−':''}${Math.abs(v)} min</span>
+            <button type="button" class="ticon adj-plus" data-p="${p}" aria-label="${PRAYER_LABEL[p]} one minute later" style="border:1px solid var(--sand-line);border-radius:8px;width:34px;height:34px;">&#43;</button>
+          </div></div>`; }).join('')}
+      <div class="notice-actions">
+        <button type="button" class="btn" id="adj-done">Done</button>
+        <button type="button" class="notice-link" id="adj-reset">Reset all to 0</button>
+      </div></div>`;
+    const change = (p,d)=>{ adj[p] = Math.max(-60, Math.min(60, (adj[p]||0)+d)); saveState(); draw(); };
+    o.querySelectorAll('.adj-minus').forEach(b=>b.onclick=()=>change(b.dataset.p,-1));
+    o.querySelectorAll('.adj-plus').forEach(b=>b.onclick=()=>change(b.dataset.p,1));
+    o.querySelector('#adj-reset').onclick = ()=>{ PRAYER_ORDER.forEach(p=>adj[p]=0); saveState(); draw(); };
+    o.querySelector('#adj-done').onclick = close;
+  };
+  const close = ()=>{ o.remove(); renderSettings(); renderToday(); };
+  o.addEventListener('click', e=>{ if(e.target===o) close(); });
+  document.body.appendChild(o);
+  draw();
 }
 function openEraseDevice(){
   if(document.getElementById('erase-dev')) return;
@@ -3141,6 +3180,140 @@ updateEntryButton();
 // Arrived from the sign-in email link? Finish signing in straight away, even before the app opens.
 if(/access_token=|error_description=/.test(location.hash||'')){
   checkLoginLinkInUrl().then(()=>{ updateEntryButton(); if(signedIn() && !document.getElementById('app').classList.contains('active')) afterSplash(); });
+}
+
+// =================== Back button (Android back, browser back) ===================
+// Back closes whatever is open, then returns to Today, and only then leaves the app (after a second press).
+var APP_VERSION = '0.9.1';
+function isNativeApp(){ try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }catch(e){ return false; } }
+function handleBack(){
+  const overlays = Array.from(document.querySelectorAll('.brain-overlay.active'));
+  if(overlays.length){
+    const z = el=>parseInt(getComputedStyle(el).zIndex,10)||0;
+    const top = overlays.reduce((a,b)=> z(b)>=z(a) ? b : a);
+    if(top.id==='brain-overlay' && typeof closeBrainDump==='function') closeBrainDump(); else if(top.id==='adj-sheet' && top.querySelector('#adj-done')) top.querySelector('#adj-done').click(); else top.remove();
+    return true;
+  }
+  const active = document.querySelector('.screen.active');
+  const sid = active ? active.id : 'app';
+  if(sid!=='app'){
+    const prev = {'signin-screen':'onboarding','personalize1':'onboarding','personalize2':'personalize1','location-screen':'personalize2'}[sid];
+    if(prev){ goTo(prev); return true; }
+    return false;
+  }
+  const tipOk = document.getElementById('tip-ok');
+  if(tipOk){ tipOk.click(); return true; }
+  if(currentTab==='today' && openAddForm!==null){ openAddForm = null; renderToday(); return true; }
+  if(currentTab==='todo' && todoAddOpen){ todoAddOpen = false; renderTodo(); return true; }
+  if(currentTab!=='today'){ switchTab('today'); return true; }
+  if(dateKeyFromDate(viewDate)!==todayKey()){ jumpToday(); return true; }
+  return false;
+}
+let backExitArmed = false, backExitTimer = null;
+function armBackGuard(){ try{ history.pushState({emtaGuard:true}, ''); }catch(e){} }
+function backPressedAtHome(exitFn){
+  if(backExitArmed){ if(exitFn) exitFn(); return; }
+  backExitArmed = true;
+  showInfoToast('Press back again to leave Emta');
+  clearTimeout(backExitTimer);
+  backExitTimer = setTimeout(()=>{ backExitArmed = false; if(!exitFn) armBackGuard(); }, 2500);
+}
+(function setUpBackButton(){
+  let nativeHooked = false;
+  try{
+    const App = isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if(App && App.addListener){
+      App.addListener('backButton', ()=>{ if(!handleBack()) backPressedAtHome(()=>App.exitApp()); });
+      nativeHooked = true;
+    }
+  }catch(e){}
+  if(nativeHooked) return;
+  // Website / installed web app: keep one spare history entry so "back" reaches us instead of leaving straight away.
+  armBackGuard();
+  window.addEventListener('popstate', ()=>{
+    if(handleBack()){ armBackGuard(); return; }
+    backPressedAtHome(null);      // nothing left to close: the next back press within a moment leaves for real
+  });
+  // Browsers ignore history entries added before the first tap, so add the spare one again once the user touches the page.
+  const rearm = ()=>{ if(!(history.state && history.state.emtaGuard)) armBackGuard(); };
+  window.addEventListener('pointerdown', rearm, {passive:true});
+})();
+
+// =================== Feedback + Emta Plus interest (one small table in Supabase; nobody can read it from the app) ===================
+async function sendFeedbackRow(kind, message, contact){
+  const headers = { 'apikey': SB_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
+  headers['Authorization'] = 'Bearer ' + (signedIn() ? sync.session.access_token : SB_KEY);
+  const body = JSON.stringify({ kind, message: String(message||'').slice(0,2000), contact: contact ? String(contact).slice(0,200) : null,
+    app_version: APP_VERSION, platform: isNativeApp() ? 'android' : 'web' });
+  const res = await fetch(SB_URL + '/rest/v1/feedback', { method:'POST', headers, body });
+  if(!res.ok) throw new Error('HTTP '+res.status);
+}
+function openFeedback(){
+  if(document.getElementById('fb-sheet')) return;
+  const o = document.createElement('div'); o.id='fb-sheet'; o.className='brain-overlay active'; o.style.zIndex='1300';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card">
+    <div class="notice-title">Send feedback</div>
+    <div class="notice-body"><p>Found a bug, or something that would make Emta better? Tell us. Every message is read.</p></div>
+    <textarea id="fb-text" class="brain-textarea" style="min-height:120px;flex:none;" maxlength="2000" placeholder="What happened, or what would you like to see?" aria-label="Your feedback"></textarea>
+    <input id="fb-contact" type="email" maxlength="200" placeholder="Your email (optional, only if you want a reply)" aria-label="Your email, optional"
+      style="width:100%;box-sizing:border-box;margin-top:8px;padding:10px 12px;border:1px solid var(--sand-line);border-radius:8px;font-family:Inter,sans-serif;font-size:13px;background:var(--surface);color:var(--ink);">
+    <div class="status-line" id="fb-status" role="status"></div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="fb-send">Send</button>
+      <button type="button" class="notice-link" id="fb-cancel">Cancel</button>
+    </div></div>`;
+  document.body.appendChild(o);
+  o.addEventListener('click', e=>{ if(e.target===o) o.remove(); });
+  o.querySelector('#fb-cancel').onclick = ()=>o.remove();
+  const send = o.querySelector('#fb-send'), status = o.querySelector('#fb-status');
+  send.onclick = async ()=>{
+    const msg = o.querySelector('#fb-text').value.trim();
+    if(msg.length<3){ status.textContent = 'Write a few words first.'; return; }
+    send.disabled = true; status.textContent = 'Sending…';
+    try{
+      await sendFeedbackRow('feedback', msg, o.querySelector('#fb-contact').value.trim());
+      o.remove(); showInfoToast('Sent. JazakAllahu khayran!');
+    }catch(e){
+      send.disabled = false;
+      status.textContent = navigator.onLine===false ? 'You\'re offline. Try again when you\'re connected.' : 'Couldn\'t send just now. Please try again in a moment.';
+    }
+  };
+  setTimeout(()=>{ const ta = o.querySelector('#fb-text'); if(ta) ta.focus(); }, 50);
+}
+function renderPlusAndFeedback(wrap){
+  const plus = document.createElement('div'); plus.className='plus-card';
+  const interested = !!state.plusInterest;
+  plus.innerHTML = `<div class="plus-badge">Coming soon</div>
+    <div class="plus-title">Emta Plus</div>
+    <div class="plus-sub">Extra planning tools for people who want more from their day:</div>
+    <ul class="plus-list">
+      <li>Auto-plan: fits your tasks into the gaps between prayers</li>
+      <li>Bring in your timetable or calendar</li>
+      <li>Plan your whole week ahead</li>
+    </ul>
+    <div class="plus-free">Prayer times, reminders and sync will always be free.</div>`;
+  const pb = document.createElement('button'); pb.type='button'; pb.className = interested ? 'btn btn-ghost btn-sm' : 'btn btn-sm';
+  pb.textContent = interested ? 'Thanks, noted ✓' : 'I’d be interested';
+  pb.disabled = interested;
+  const ps = document.createElement('div'); ps.className='status-line'; ps.setAttribute('role','status');
+  if(interested) ps.textContent = 'This helps us decide what to build first.';
+  pb.onclick = async ()=>{
+    pb.disabled = true; ps.textContent = 'Sending…';
+    try{ await sendFeedbackRow('plus_interest', 'Interested in Emta Plus', null); state.plusInterest = true; saveState(); renderSettings(); }
+    catch(e){ pb.disabled = false; ps.textContent = 'Couldn\'t send just now. Please try again when you\'re online.'; }
+  };
+  plus.appendChild(pb); plus.appendChild(ps);
+  wrap.appendChild(plus);
+
+  const st = document.createElement('div'); st.className='section-title'; st.style.cssText='padding:0;margin-top:22px;'; st.textContent='Help make Emta better';
+  wrap.appendChild(st);
+  const fb = document.createElement('button'); fb.type='button'; fb.className='btn btn-ghost'; fb.textContent='Send feedback';
+  fb.onclick = openFeedback;
+  wrap.appendChild(fb);
+  const ver = document.createElement('div'); ver.className='sub'; ver.style.cssText='text-align:center;font-size:11px;margin:18px 0 6px;';
+  ver.textContent = `Emta ${APP_VERSION} · ${isNativeApp() ? 'Android app' : 'web'}`;
+  wrap.appendChild(ver);
 }
 
 if('serviceWorker' in navigator){
