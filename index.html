@@ -203,6 +203,11 @@
   .task.done .ttime{color:var(--ink-soft);}
   .task .trecur{font-size:11px;color:var(--sage);}
 
+  .streak-pill{display:table;margin:2px auto 10px;padding:5px 12px;border-radius:999px;border:1px solid var(--sand-line);background:var(--surface);font-size:12.5px;color:var(--ink-soft);}
+  .streak-pill .flame{filter:grayscale(1);opacity:.6;margin-right:3px;}
+  .streak-pill.lit{border-color:var(--terracotta);color:var(--ink);}
+  .streak-pill.lit .flame{filter:none;opacity:1;}
+  .streak-pill strong{font-weight:600;color:var(--ink);}
   .stat-row{display:flex;gap:10px;max-width:480px;margin:4px auto 18px;padding:0 20px;flex-wrap:wrap;}
   .stat-card{flex:1;min-width:90px;background:var(--sand);border-radius:var(--radius-sm);padding:12px 14px;}
   .stat-card .num{font-size:19px;font-weight:600;}
@@ -519,7 +524,7 @@ function loadState(){
 }
 let saveWarned = false;
 function saveState(){
-  try{ if(!(typeof applyingRemote!=='undefined' && applyingRemote)) state._modifiedAt = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(typeof onStateSaved==='function') onStateSaved(); }
+  try{ if(!(typeof applyingRemote!=='undefined' && applyingRemote)) state._modifiedAt = Date.now(); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); if(typeof onStateSaved==='function') onStateSaved(); if(typeof queueReminderSync==='function') queueReminderSync(); }
   catch(e){
     // Private browsing, full storage or blocked site data: keep working, but tell the user once.
     if(saveWarned) return; saveWarned = true;
@@ -709,6 +714,7 @@ function checkNewDay(){
 }
 function launchApp(){
   goTo('app');
+  if(typeof maybeAskReminders==='function') setTimeout(maybeAskReminders, 2500);
   if(state._needsLegacy || typeof state.legacyBoxes !== 'number'){ carryOverLegacyBoxes(); delete state._needsLegacy; saveState(); }
   lastSeenDay = todayKey();
   if(typeof state.celebratedLevel !== 'number'){ const sc = currentScore(); state.celebratedLevel = levelInfo(sc).level; state.celebratedBoxes = BOX_MILESTONES.filter(m=>m<=sc).pop()||0; saveState(); }
@@ -1146,6 +1152,15 @@ function renderToday(){
   `;
   container.appendChild(nav);
   nav.querySelector('#date-label').onclick = openDatePicker;
+  if(isToday){
+    const streak = computeStreak(), tickedToday = dayScore(key)>0;
+    const sp = document.createElement('div'); sp.className='streak-pill'+(tickedToday?' lit':'');
+    sp.setAttribute('role','status');
+    sp.innerHTML = streak===0
+      ? `<span class="flame" aria-hidden="true">🔥</span> Tick a task to start your streak`
+      : `<span class="flame" aria-hidden="true">🔥</span> <strong>${streak}-day streak</strong>${tickedToday?'':' · tick a task today to keep it'}`;
+    container.appendChild(sp);
+  }
   if(!isToday){
     const jb = document.createElement('button'); jb.className='btn btn-ghost btn-sm jump-today';
     jb.textContent='Jump to today'; jb.onclick=jumpToday;
@@ -1224,7 +1239,6 @@ function renderToday(){
   const prayedCount = PRAYER_ORDER.filter(p=>day.prayers[p]).length;
   const realTasks = day.tasks.filter(tk=>!tk.sample);
   stats.innerHTML = `<div class="stat-card"><div class="num">${realTasks.filter(tk=>tk.done).length}/${realTasks.length}</div><div class="lbl">tasks done</div></div>
-    <div class="stat-card"><div class="num">${computeStreak()}</div><div class="lbl">day streak</div></div>
     ${trackingPrayers()?`<div class="stat-card"><div class="num">${prayedCount}/5</div><div class="lbl">prayers logged</div></div>`:''}`;
   container.appendChild(stats);
 
@@ -2487,6 +2501,8 @@ function renderSettings(){
   wrap.appendChild(settingRow('Show tips again','Bring back the short guide on each tab', false, v=>{ if(v){ state.seenTips = {}; saveState(); showInfoToast('Tips will show again on each tab'); setTimeout(renderSettings, 300); } }));
   wrap.appendChild(settingRow('Prayer times notice','Show a reminder about prayer time accuracy each time the app opens', !state.settings.hideTimesNotice, v=>{state.settings.hideTimesNotice=!v; saveState();}));
 
+  renderRemindersSection(wrap);
+
   const stRepeat = document.createElement('div'); stRepeat.className='section-title'; stRepeat.style.cssText='padding:0;margin-top:22px;'; stRepeat.textContent='Repeating tasks';
   wrap.appendChild(stRepeat);
   const recurWrap = document.createElement('div');
@@ -3184,7 +3200,7 @@ if(/access_token=|error_description=/.test(location.hash||'')){
 
 // =================== Back button (Android back, browser back) ===================
 // Back closes whatever is open, then returns to Today, and only then leaves the app (after a second press).
-var APP_VERSION = '0.9.1';
+var APP_VERSION = '0.10.0';
 function isNativeApp(){ try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }catch(e){ return false; } }
 function handleBack(){
   const overlays = Array.from(document.querySelectorAll('.brain-overlay.active'));
@@ -3315,6 +3331,257 @@ function renderPlusAndFeedback(wrap){
   ver.textContent = `Emta ${APP_VERSION} · ${isNativeApp() ? 'Android app' : 'web'}`;
   wrap.appendChild(ver);
 }
+
+// =================== Reminders (notifications; Android app only) ===================
+// Planner-first: Emta speaks up about YOUR PLAN, anchored to salah. Plain prayer-time alerts are opt-in,
+// because most people already have an adhan app. Everything is scheduled on the phone about a week ahead
+// and refreshed whenever the app opens or something changes.
+var NOTIF_DEFAULTS = { on:false, blocks:true, tasks:true, plan:true, prayers:false, jumuah:false };
+var NOTIF_CHANNEL = 'emta-reminders', NOTIF_SNOOZE_BASE = 1000000000, NOTIF_DAYS = 7, NOTIF_MAX = 150;
+function notifPrefs(){ return Object.assign({}, NOTIF_DEFAULTS, state.settings.notif||{}); }
+function setNotifPref(k, v){ state.settings.notif = Object.assign(notifPrefs(), {[k]:v}); saveState(); }
+function LN(){ try{ return (isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) || null; }catch(e){ return null; } }
+
+// The real moment a wall-clock time happens on a date (uses the chosen city's timezone if one is set).
+function instantFor(dateObj, hhmm){
+  const [h,m] = hhmm.split(':').map(Number);
+  const y = dateObj.getFullYear(), mo = dateObj.getMonth()+1, d = dateObj.getDate();
+  return new Date(Date.UTC(y, mo-1, d, h, m) - tzOffsetHours(state.location && state.location.tz, y, mo, d)*3600000);
+}
+// Tasks for a day WITHOUT creating that day's record (future days only exist once you open them).
+function tasksForKey(key){
+  const day = state.days[key];
+  if(day) return day.tasks.filter(t=>!t.sample);
+  return state.recurringTasks.filter(rt=>templateOn(rt,key)).map(rt=>({ id:'tpl-'+rt.id, templateId:rt.id, block:rt.block, text:rt.text, minutes:rt.minutes||null, startTime:rt.startTime||null, done:false }));
+}
+function clip(str, n){ str = String(str||''); return str.length>n ? str.slice(0,n-1).trimEnd()+'…' : str; }
+function taskListLine(tasks){
+  const parts = tasks.slice(0,3).map(t=> clip(t.text,28) + (t.minutes ? ` (${formatMinutes(t.minutes)})` : (t.startTime ? ` (${to12h(t.startTime)})` : '')));
+  if(tasks.length>3) parts.push(`+${tasks.length-3} more`);
+  return parts.join(' · ');
+}
+// Pure: works out every reminder for the next week from the current state. Returns [{id, at, title, body, extra, actions}].
+function buildReminders(now){
+  const p = notifPrefs(); const out = [];
+  if(!p.on) return out;
+  for(let i=0;i<NOTIF_DAYS;i++){
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+    const key = dateKeyFromDate(d);
+    if(!timingsCache[key]){ try{ const {lat,lng} = state.location;
+      const mt = state.settings.useMasjid !== false && state.masjidTimes && state.masjidTimes[key];
+      if(mt){ timingsCache[key] = Object.assign({}, mt); sourceUsed[key] = 'masjid'; }
+      else { const c = calcPrayerTimes(d.getFullYear(), d.getMonth()+1, d.getDate(), lat, lng, state.settings.calcMethod, state.settings.asrSchool?1:0, state.settings.latRule||0);
+        timingsCache[key] = {fajr:c.fajr, dhuhr:c.dhuhr, asr:c.asr, maghrib:c.maghrib, isha:c.isha}; sourceUsed[key] = 'calc'; } }catch(e){ continue; } }
+    const t = getAdjustedTimings(key); if(!t) continue;
+    const base = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())/86400000)*100;
+    const open = tasksForKey(key).filter(x=>!x.done);
+    const blockMode = !!state.settings.blockMode;
+
+    PRAYER_ORDER.forEach((pid,pi)=>{
+      if(!t[pid]) return;
+      const L = PRAYER_LABEL[pid];
+      const mine = blockMode ? open.filter(x=>x.block===pid) : (pi===0 ? open : []);
+      const planLine = mine.length ? (blockMode ? `After ${L}: ` : 'Today: ') : '';
+      const count = `${mine.length} thing${mine.length===1?'':'s'} planned`;
+      let title = null, body = null;
+      if(p.prayers){
+        title = `${L} · ${to12h(t[pid])}`;
+        body = (p.blocks && mine.length) ? planLine + taskListLine(mine) : `It’s time for ${L}.`;
+      } else if(p.blocks && mine.length){
+        title = planLine + count; body = taskListLine(mine);
+      }
+      if(title) out.push({ id:base+pi, at:instantFor(d,t[pid]), title, body, extra:{kind:'block', day:key} });
+    });
+
+    if(p.tasks){
+      open.filter(x=>x.startTime).slice(0,60).forEach((tk,idx)=>{
+        const bits = [];
+        if(tk.minutes) bits.push(formatMinutes(tk.minutes));
+        if(blockMode && PRAYER_LABEL[tk.block]) bits.push('after '+PRAYER_LABEL[tk.block]);
+        out.push({ id:base+20+idx, at:instantFor(d,tk.startTime), title:`${clip(tk.text,48)} starts now`, body:bits.join(' · ') || to12h(tk.startTime),
+          actions:true, extra:{kind:'task', day:key, taskId:tk.id, templateId:tk.templateId||null, text:clip(tk.text,48)} });
+      });
+    }
+    if(p.jumuah && d.getDay()===5 && t.dhuhr){
+      out.push({ id:base+10, at:new Date(instantFor(d,t.dhuhr).getTime()-30*60000), title:'Jumu’ah in 30 minutes', body:`Dhuhr is at ${to12h(t.dhuhr)} today.`, extra:{kind:'jumuah', day:key} });
+    }
+    // "Plan tomorrow": only the next 3 evenings, so someone who stops opening Emta isn't nagged forever.
+    if(p.plan && i<3 && t.isha){
+      const tmr = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1); const tk = dateKeyFromDate(tmr);
+      if(tasksForKey(tk).length===0){
+        out.push({ id:base+11, at:new Date(instantFor(d,t.isha).getTime()+30*60000), title:'Tomorrow’s empty', body:'Take 2 minutes to plan it around salah?', extra:{kind:'plan', day:tk} });
+      }
+    }
+  }
+  const soon = now.getTime()+15000;
+  return out.filter(n=>n.at.getTime()>soon).sort((a,b)=>a.at-b.at).slice(0,NOTIF_MAX);
+}
+function toNativeNotif(n){
+  const o = { id:n.id, title:n.title, body:n.body, schedule:{ at:n.at, allowWhileIdle:true }, channelId:NOTIF_CHANNEL,
+    smallIcon:'ic_stat_emta', iconColor:'#5C7A5C', autoCancel:true, extra:n.extra||{} };
+  if(n.actions) o.actionTypeId = 'EMTA_TASK';
+  return o;
+}
+let notifTimer = null, notifBusy = false, notifAgain = false, notifSig = null, notifBlocked = false;
+function queueReminderSync(){ if(!LN()) return; clearTimeout(notifTimer); notifTimer = setTimeout(()=>syncReminders(false), 1200); }
+async function syncReminders(force){
+  const ln = LN(); if(!ln) return;
+  if(notifBusy){ notifAgain = true; return; }
+  notifBusy = true;
+  try{
+    let list = buildReminders(new Date());
+    if(list.length){
+      const perm = await ln.checkPermissions();
+      notifBlocked = perm.display !== 'granted';
+      if(notifBlocked) list = [];
+    }
+    const sig = JSON.stringify(list.map(n=>[n.id, n.at.getTime(), n.title, n.body]));
+    if(!force && sig===notifSig) return;
+    const pending = await ln.getPending();
+    const ours = ((pending && pending.notifications) || []).filter(n=>n.id < NOTIF_SNOOZE_BASE);
+    if(ours.length) await ln.cancel({ notifications: ours.map(n=>({id:n.id})) });
+    if(list.length) await ln.schedule({ notifications: list.map(toNativeNotif) });
+    notifSig = sig;
+  }catch(e){ try{ console.warn('Emta reminders:', e && e.message || e); }catch(_){} }
+  finally{ notifBusy = false; if(notifAgain){ notifAgain = false; queueReminderSync(); } }
+}
+async function enableReminders(){
+  const ln = LN(); if(!ln) return false;
+  let ok = false;
+  try{
+    let st = await ln.checkPermissions();
+    if(st.display !== 'granted') st = await ln.requestPermissions();
+    ok = st.display === 'granted';
+  }catch(e){ ok = false; }
+  notifBlocked = !ok;
+  setNotifPref('on', ok);
+  if(ok) syncReminders(true);
+  return ok;
+}
+function whenAppReady(fn, tries){
+  tries = tries||0;
+  const app = document.getElementById('app');
+  if(app && app.classList.contains('active')){ fn(); return; }
+  if(tries<20) setTimeout(()=>whenAppReady(fn, tries+1), 400);
+}
+function openDay(key){
+  viewDate = parseKey(key); openAddForm = null; editingTaskId = null;
+  if(currentTab!=='today') switchTab('today');
+  Promise.all([loadPrayerTimesFor(viewDate), loadPrayerTimesFor(tomorrowOf(viewDate))]).then(renderToday);
+}
+// Someone tapped a reminder, or one of its buttons. (Android opens the app first, then tells us.)
+function onReminderAction(ev){
+  const n = (ev && ev.notification) || {}; const x = n.extra || {}; const act = ev && ev.actionId;
+  whenAppReady(()=>{
+    if(x.kind==='task' && act==='done'){
+      const day = ensureDay(x.day);
+      const tk = day.tasks.find(t=>t.id===x.taskId) || (x.templateId && day.tasks.find(t=>t.templateId===x.templateId && !t.done));
+      if(tk && !tk.done){ tk.done = true; saveState(); showInfoToast('Done: '+clip(tk.text,40)); celebrateIfNew(); }
+      openDay(x.day);
+    } else if(x.kind==='task' && act==='snooze'){
+      const ln = LN();
+      if(ln) ln.schedule({ notifications:[ toNativeNotif({ id: NOTIF_SNOOZE_BASE + (Date.now()%900000000), at:new Date(Date.now()+10*60000),
+        title:(x.text||'Task')+' (snoozed)', body:'Ready when you are.', actions:true, extra:x }) ] }).catch(()=>{});
+      showInfoToast('Snoozed for 10 minutes');
+      if(x.day) openDay(x.day);
+    } else if(x.day){
+      openDay(x.day);
+    }
+  });
+}
+async function initReminders(){
+  const ln = LN(); if(!ln) return;
+  try{ await ln.createChannel({ id:NOTIF_CHANNEL, name:'Reminders', description:'Your tasks and day plan, timed around salah', importance:4, visibility:1 }); }catch(e){}
+  try{ await ln.registerActionTypes({ types:[{ id:'EMTA_TASK', actions:[{id:'done', title:'Mark done'},{id:'snooze', title:'Snooze 10 min'}] }] }); }catch(e){}
+  try{ ln.addListener('localNotificationActionPerformed', onReminderAction); }catch(e){}
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ notifSig = null; queueReminderSync(); } });
+  queueReminderSync();
+}
+// One friendly screen before Android's own permission box, so people know why they're being asked.
+function maybeAskReminders(tries){
+  if(!LN() || state.notifAsked) return;
+  tries = tries||0;
+  const busy = document.querySelector('.brain-overlay.active') || document.getElementById('tip-card') || !document.getElementById('app').classList.contains('active');
+  if(busy){ if(tries<6) setTimeout(()=>maybeAskReminders(tries+1), 5000); return; }
+  state.notifAsked = true; saveState();
+  if(notifPrefs().on){ enableReminders(); return; }     // already chosen on another device: just ask Android
+  const o = document.createElement('div'); o.id='notif-ask'; o.className='brain-overlay active'; o.style.zIndex='1250';
+  o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
+  o.innerHTML = `<div class="notice-card">
+    <div class="notice-title">Want a nudge at the right time?</div>
+    <div class="notice-body">
+      <p>Emta can remind you about your plan, timed around salah:</p>
+      <ul style="margin:6px 0 8px;padding-left:18px;line-height:1.6;">
+        <li>What you planned after each prayer</li>
+        <li>When a task is due to start</li>
+        <li>A gentle evening nudge to plan tomorrow</li>
+      </ul>
+      <p>It stays quiet when you have nothing planned. You can change this anytime in Settings.</p>
+    </div>
+    <div class="notice-actions">
+      <button type="button" class="btn" id="notif-yes">Turn on reminders</button>
+      <button type="button" class="notice-link" id="notif-no">Not now</button>
+    </div></div>`;
+  document.body.appendChild(o);
+  o.querySelector('#notif-no').onclick = ()=>o.remove();
+  o.querySelector('#notif-yes').onclick = async ()=>{
+    o.remove();
+    const ok = await enableReminders();
+    showInfoToast(ok ? 'Reminders are on' : 'Notifications are blocked. You can allow them in Settings.');
+    if(currentTab==='settings') renderSettings();
+  };
+}
+function renderRemindersSection(wrap){
+  const st = document.createElement('div'); st.className='section-title'; st.style.cssText='padding:0;margin-top:22px;'; st.textContent='Reminders';
+  wrap.appendChild(st);
+  const ln = LN();
+  if(!ln){
+    const note = document.createElement('div'); note.className='sub'; note.style.margin='4px 0 6px';
+    note.textContent = 'Reminders for your tasks and day plan work in the Emta Android app.';
+    wrap.appendChild(note); return;
+  }
+  const p = notifPrefs();
+  wrap.appendChild(settingRow('Reminders','Nudges about your plan, timed around salah. Quiet when nothing is planned', p.on, async v=>{
+    if(v){ const ok = await enableReminders(); if(!ok) showInfoToast('Notifications are blocked for Emta'); }
+    else { setNotifPref('on', false); syncReminders(true); }
+    renderSettings();
+  }));
+  if(p.on && notifBlocked){
+    const warn = document.createElement('div'); warn.className='sub'; warn.style.cssText='margin:6px 0;color:var(--terracotta);';
+    warn.textContent = 'Notifications are switched off for Emta on this phone. Turn them on in your phone’s Settings → Apps → Emta → Notifications.';
+    wrap.appendChild(warn);
+  }
+  if(!p.on) return;
+  const sub = (k, label, hint)=> wrap.appendChild(settingRow(label, hint, p[k], v=>{ setNotifPref(k, v); syncReminders(true); }));
+  sub('blocks','After each prayer','“After Asr: Assignment, Gym”. Only when that part of your day has tasks');
+  sub('tasks','Task start times','“Gym starts now” for tasks you gave a start time');
+  sub('plan','Plan tomorrow','One nudge after Isha if tomorrow is still empty');
+  sub('prayers','Prayer time alerts','An alert at each prayer time. Leave off if another app already does this');
+  sub('jumuah','Jumu’ah reminder','Fridays, 30 minutes before Dhuhr');
+
+  const exactRow = document.createElement('div'); wrap.appendChild(exactRow);
+  if(ln.checkExactNotificationSetting){
+    ln.checkExactNotificationSetting().then(r=>{
+      if(!r || r.exact_alarm==='granted') return;
+      exactRow.className='setting-row';
+      exactRow.innerHTML = `<div><div class="label">Arrive exactly on time</div><div class="sub">Without this, Android may deliver reminders a few minutes late to save battery</div></div>`;
+      const b = document.createElement('button'); b.type='button'; b.className='btn btn-ghost btn-sm'; b.textContent='Allow';
+      b.onclick = ()=>{ ln.changeExactNotificationSetting().then(()=>{ syncReminders(true); renderSettings(); }).catch(()=>{}); };
+      exactRow.appendChild(b);
+    }).catch(()=>{});
+  }
+  const testRow = document.createElement('div'); testRow.className='setting-row';
+  testRow.innerHTML = `<div><div class="label">Send a test reminder</div><div class="sub">Arrives in about 10 seconds. Lock your phone to see it properly</div></div>`;
+  const tb = document.createElement('button'); tb.type='button'; tb.className='btn btn-ghost btn-sm'; tb.textContent='Test';
+  tb.onclick = ()=>{
+    ln.schedule({ notifications:[ toNativeNotif({ id: NOTIF_SNOOZE_BASE + (Date.now()%900000000), at:new Date(Date.now()+10000),
+      title:'After Asr: 2 things planned', body:'This is a test · Reminders are working', extra:{kind:'test'} }) ] })
+      .then(()=>showInfoToast('Test reminder on its way'))
+      .catch(()=>showInfoToast('Couldn’t schedule the test'));
+  };
+  testRow.appendChild(tb); wrap.appendChild(testRow);
+}
+initReminders();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
