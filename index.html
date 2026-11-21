@@ -223,6 +223,13 @@
 
 
   .section-title{font-size:13px;color:var(--ink-soft);margin:18px 0 10px;padding:0 20px;}
+  .set-head{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;background:none;border:none;border-bottom:1px solid var(--sand-line);padding:14px 0;text-align:left;cursor:pointer;color:var(--ink);font-family:'Inter',sans-serif;}
+  .set-name{display:block;font-size:15px;}
+  .set-hint{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .set-chev{font-size:20px;color:var(--ink-soft);transition:transform .15s;}
+  .set-head.open .set-chev{transform:rotate(90deg);}
+  .set-body{padding:4px 0 10px;border-bottom:1px solid var(--sand-line);}
+  .set-body > .setting-row:last-child{border-bottom:none;}
   .empty{font-size:13px;color:var(--ink-soft);padding:20px;text-align:center;}
 
   .recur-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--sand-line);font-size:13px;}
@@ -1041,8 +1048,7 @@ const TIPS = {
     'Tap the date at the top to jump to any day.'] },
   todo: { title:'A list that isn’t tied to a day', lines:[
     'Add things you need to do at some point.',
-    'Use "+ divider" to set things aside for later. Tap a divider to fold it, or ✎ to rename it.',
-    'Head full? Open the brain dump, write freely, and turn it into list items.'] },
+    'Use "+ divider" to set things aside for later. Tap a divider to fold it, or ✎ to rename it.'] },
   progress: { title:'Every tick counts', lines:[
     'Each task and to-do you tick is one box. Boxes take you up levels.',
     'Your prayer log is kept separate and never counts for or against you.',
@@ -2492,6 +2498,8 @@ function renderSettings(){
   const wrap = document.createElement('div'); wrap.style.padding='4px 20px';
   renderAccountSection(wrap);
 
+  const stDisp = document.createElement('div'); stDisp.className='section-title'; stDisp.style.cssText='padding:0;margin-top:22px;'; stDisp.textContent='Display';
+  wrap.appendChild(stDisp);
   wrap.appendChild(settingRow('Split day by prayer times','Group tasks into blocks between prayers instead of a flat list', state.settings.blockMode, v=>{state.settings.blockMode=v; saveState(); renderToday();}));
   wrap.appendChild(settingRow('Fade past blocks','Dim blocks whose prayer window has already passed', state.settings.fadePast, v=>{state.settings.fadePast=v; saveState(); renderToday();}));
   wrap.appendChild(settingRow('Prayer log','Optional. Tick each prayer to keep a private record. It never affects your progress', trackingPrayers(), v=>{state.settings.trackPrayers=v; saveState(); renderToday(); renderSettings();}));
@@ -2656,9 +2664,43 @@ function renderSettings(){
   eraseBtn.onclick = openEraseDevice;
   dataWrap.appendChild(dataBtns); dataWrap.appendChild(fileInput); dataWrap.appendChild(statusLine); dataWrap.appendChild(eraseBtn);
   wrap.appendChild(dataWrap);
+  foldSettingsSections(wrap);
   renderPlusAndFeedback(wrap);
 
   container.appendChild(wrap);
+}
+// Turns each "section-title" and the rows after it into a tap-to-open group, so Settings fits on a screen or two.
+var settingsOpen = {};
+var SETTINGS_HINT = {
+  'Account & sync':'Sign in to keep your plan on all your devices',
+  'Display':'Prayer blocks, prayer log, countdown, dark mode',
+  'Reminders':'Notifications about your plan',
+  'Repeating tasks':'Tasks that come back every day or week',
+  'Location & calculation':'Your city, method and adjusting times',
+  'Masjid timetable':'Use your masjid’s exact times',
+  'Your data':'Back up, restore or erase'
+};
+function foldSettingsSections(wrap){
+  const kids = Array.from(wrap.children);
+  let group = null;
+  kids.forEach(el=>{
+    if(el.classList && el.classList.contains('section-title')){
+      const name = el.textContent;
+      const head = document.createElement('button'); head.type='button'; head.className='set-head';
+      const open = !!settingsOpen[name];
+      head.setAttribute('aria-expanded', open?'true':'false');
+      head.innerHTML = `<span><span class="set-name"></span><span class="set-hint"></span></span><span class="set-chev" aria-hidden="true">›</span>`;
+      head.querySelector('.set-name').textContent = name;
+      head.querySelector('.set-hint').textContent = (name==='Account & sync' && typeof signedIn==='function' && signedIn()) ? 'Signed in · your plan syncs across devices' : (SETTINGS_HINT[name] || '');
+      group = document.createElement('div'); group.className='set-body'; group.hidden = !open;
+      const g = group;
+      head.onclick = ()=>{ settingsOpen[name] = !settingsOpen[name]; g.hidden = !settingsOpen[name]; head.setAttribute('aria-expanded', settingsOpen[name]?'true':'false'); head.classList.toggle('open', settingsOpen[name]); };
+      if(open) head.classList.add('open');
+      wrap.insertBefore(head, el); wrap.insertBefore(group, el); el.remove();
+    } else if(group){
+      group.appendChild(el);
+    }
+  });
 }
 function openAdjustTimes(){
   if(document.getElementById('adj-sheet')) return;
@@ -2717,19 +2759,24 @@ function openEraseDevice(){
     location.reload();
   };
 }
+var SHOW_BRAIN_DUMP = false;
 function renderTodo(){
   const container = document.getElementById('tab-todo'); container.innerHTML='';
 
-  const topWrap = document.createElement('div'); topWrap.style.cssText='max-width:480px;margin:0 auto;padding:16px 20px 0;';
-  const dumpBtn = document.createElement('button'); dumpBtn.className='btn';
-  dumpBtn.style.cssText='background:var(--sand);color:var(--ink);border:1px solid var(--sand-line);';
-  dumpBtn.textContent = '✎ Open brain dump';
-  dumpBtn.onclick = openBrainDump;
-  topWrap.appendChild(dumpBtn);
-  container.appendChild(topWrap);
-
-  const hr = document.createElement('hr'); hr.className='divider-line'; hr.style.maxWidth='440px'; hr.style.margin='16px auto';
-  container.appendChild(hr);
+  // Brain dump is switched off for now (set SHOW_BRAIN_DUMP = true to bring it back).
+  if(SHOW_BRAIN_DUMP){
+    const topWrap = document.createElement('div'); topWrap.style.cssText='max-width:480px;margin:0 auto;padding:16px 20px 0;';
+    const dumpBtn = document.createElement('button'); dumpBtn.className='btn';
+    dumpBtn.style.cssText='background:var(--sand);color:var(--ink);border:1px solid var(--sand-line);';
+    dumpBtn.textContent = '✎ Open brain dump';
+    dumpBtn.onclick = openBrainDump;
+    topWrap.appendChild(dumpBtn);
+    container.appendChild(topWrap);
+    const hr = document.createElement('hr'); hr.className='divider-line'; hr.style.maxWidth='440px'; hr.style.margin='16px auto';
+    container.appendChild(hr);
+  } else {
+    const sp = document.createElement('div'); sp.style.height='14px'; container.appendChild(sp);
+  }
 
   const list = state.todoList;
   const isTask = x => x.type!=='divider';
@@ -3200,7 +3247,7 @@ if(/access_token=|error_description=/.test(location.hash||'')){
 
 // =================== Back button (Android back, browser back) ===================
 // Back closes whatever is open, then returns to Today, and only then leaves the app (after a second press).
-var APP_VERSION = '0.10.0';
+var APP_VERSION = '0.11.0';
 function isNativeApp(){ try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }catch(e){ return false; } }
 function handleBack(){
   const overlays = Array.from(document.querySelectorAll('.brain-overlay.active'));
@@ -3570,16 +3617,6 @@ function renderRemindersSection(wrap){
       exactRow.appendChild(b);
     }).catch(()=>{});
   }
-  const testRow = document.createElement('div'); testRow.className='setting-row';
-  testRow.innerHTML = `<div><div class="label">Send a test reminder</div><div class="sub">Arrives in about 10 seconds. Lock your phone to see it properly</div></div>`;
-  const tb = document.createElement('button'); tb.type='button'; tb.className='btn btn-ghost btn-sm'; tb.textContent='Test';
-  tb.onclick = ()=>{
-    ln.schedule({ notifications:[ toNativeNotif({ id: NOTIF_SNOOZE_BASE + (Date.now()%900000000), at:new Date(Date.now()+10000),
-      title:'After Asr: 2 things planned', body:'This is a test · Reminders are working', extra:{kind:'test'} }) ] })
-      .then(()=>showInfoToast('Test reminder on its way'))
-      .catch(()=>showInfoToast('Couldn’t schedule the test'));
-  };
-  testRow.appendChild(tb); wrap.appendChild(testRow);
 }
 initReminders();
 
